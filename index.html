@@ -1,0 +1,1842 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#2c3e50">
+  <link rel="manifest" href="manifest.json">
+  <title>Verificador de Patrimônio</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #ecf0f1;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 12px;
+    }
+    header {
+      background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+      color: white;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.5em;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .stat-card {
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .stat-card .number {
+      font-size: 2em;
+      font-weight: bold;
+      margin: 0;
+    }
+    .stat-card .label {
+      font-size: 0.85em;
+      color: #7f8c8d;
+      margin-top: 4px;
+    }
+    .stat-card.ok .number { color: #27ae60; }
+    .stat-card.err .number { color: #e74c3c; }
+    .stat-card.warn .number { color: #f39c12; }
+    
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 12px 0;
+    }
+    button {
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #3498db;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      flex: 1;
+      min-width: 120px;
+    }
+    button:hover { background: #2980b9; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+    button:disabled { background: #95a5a6; cursor: not-allowed; transform: none; }
+    button.success { background: #27ae60; }
+    button.success:hover { background: #229954; }
+    button.secondary { background: #95a5a6; }
+    button.secondary:hover { background: #7f8c8d; }
+    button.danger { background: #e74c3c; }
+    button.danger:hover { background: #c0392b; }
+    button.warning { background: #f39c12; }
+    button.warning:hover { background: #d68910; }
+    
+    #reader {
+      max-width: 100%;
+      border: 3px solid #3498db;
+      border-radius: 12px;
+      overflow: hidden;
+      background: black;
+      margin: 12px 0;
+    }
+    #reader video {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .preview-overlay {
+      position: relative;
+    }
+    .preview-overlay::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80%;
+      height: 40%;
+      border: 3px dashed #f39c12;
+      border-radius: 8px;
+      pointer-events: none;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.3);
+    }
+    .camera-controls {
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      margin: 12px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .camera-controls label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0;
+      cursor: pointer;
+    }
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+    
+    .results-section {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      margin: 12px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .results-section h3 {
+      margin-top: 0;
+      color: #2c3e50;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 8px;
+    }
+    
+    .result-item {
+      background: #f8f9fa;
+      border-left: 4px solid #3498db;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 4px;
+      animation: slideIn 0.3s ease-out;
+    }
+    .result-item.ok { border-left-color: #27ae60; }
+    .result-item.err { border-left-color: #e74c3c; }
+    .result-item.warn { border-left-color: #f39c12; }
+    
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .result-id {
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+    .result-status {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85em;
+      font-weight: bold;
+    }
+    .result-status.ok { background: #27ae60; color: white; }
+    .result-status.err { background: #e74c3c; color: white; }
+    .result-status.warn { background: #f39c12; color: white; }
+    
+    .result-details {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px;
+      font-size: 0.9em;
+    }
+    .result-details dt {
+      font-weight: 600;
+      color: #7f8c8d;
+    }
+    .result-details dd {
+      margin: 0;
+      color: #2c3e50;
+    }
+    
+    .alert {
+      padding: 12px;
+      border-radius: 8px;
+      margin: 12px 0;
+      background: #fff3cd;
+      border-left: 4px solid #f39c12;
+      color: #856404;
+    }
+    
+    .export-section {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      margin: 12px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .export-section input {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      margin: 8px 0;
+      font-size: 1em;
+    }
+    
+    .import-section {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      margin: 12px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .import-section h3 {
+      margin-top: 0;
+      color: #2c3e50;
+      border-bottom: 2px solid #9b59b6;
+      padding-bottom: 8px;
+    }
+    .file-input-wrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+      width: 100%;
+    }
+    .file-input-wrapper input[type=file] {
+      position: absolute;
+      left: -9999px;
+    }
+    .file-input-label {
+      display: block;
+      padding: 12px;
+      background: #9b59b6;
+      color: white;
+      text-align: center;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    .file-input-label:hover {
+      background: #8e44ad;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .sheet-info {
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 6px;
+      margin: 12px 0;
+      font-size: 0.9em;
+    }
+    .sheet-info.loaded {
+      background: #d4edda;
+      border-left: 4px solid #28a745;
+    }
+    .sync-status {
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin: 8px 0;
+      font-size: 0.9em;
+      display: none;
+    }
+    .sync-status.success {
+      background: #d4edda;
+      color: #155724;
+      border-left: 4px solid #28a745;
+      display: block;
+    }
+    .sync-status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border-left: 4px solid #dc3545;
+      display: block;
+    }
+    
+    @media (max-width: 600px) {
+      .btn-group { flex-direction: column; }
+      button { min-width: 100%; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+  <!-- Dependências -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+  <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js" defer></script>
+  <script src="https://unpkg.com/tesseract.js@5.0.4/dist/tesseract.min.js" defer></script>
+  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+  <script defer>
+    // Garantir que as bibliotecas estejam carregadas antes de iniciar
+    function waitForLibraries() {
+      return new Promise((resolve) => {
+        const checkLibraries = setInterval(() => {
+          if (typeof Html5Qrcode !== 'undefined' && 
+              typeof jsQR !== 'undefined' &&
+              typeof Tesseract !== 'undefined' && 
+              typeof XLSX !== 'undefined') {
+            clearInterval(checkLibraries);
+            resolve();
+          }
+        }, 100);
+      });
+    }
+  </script>
+</head>
+<body>
+  <header>
+    <h1>📋 Verificador de Patrimônio</h1>
+    <p style="margin: 4px 0 0 0; font-size: 0.9em; opacity: 0.9;">Escaneie etiquetas com a câmera</p>
+  </header>
+
+  <div class="container">
+    <!-- Estatísticas -->
+    <div class="stats">
+      <div class="stat-card">
+        <p class="number" id="totalCount">0</p>
+        <p class="label">Total</p>
+      </div>
+      <div class="stat-card ok">
+        <p class="number" id="okCount">0</p>
+        <p class="label">✓ OK</p>
+      </div>
+      <div class="stat-card err">
+        <p class="number" id="errCount">0</p>
+        <p class="label">✗ Erro</p>
+      </div>
+      <div class="stat-card warn">
+        <p class="number" id="warnCount">0</p>
+        <p class="label">⚠ Aviso</p>
+      </div>
+    </div>
+
+    <!-- Controles principais -->
+    <div class="btn-group">
+      <button id="startBtn">📷 Iniciar Câmera</button>
+      <button id="stopBtn" class="danger" disabled>⏹ Parar</button>
+      <button id="scanOnceBtn" class="warning" disabled>📸 Escanear Agora</button>
+    </div>
+
+    <!-- Câmera -->
+    <div id="reader" style="width:100%;max-width:640px;height:auto;display:none;margin:0 auto;"></div>
+    <canvas id="videoCanvas" style="display:none"></canvas>
+
+    <!-- Controles da câmera -->
+    <div class="camera-controls" id="cameraControls" style="display:none">
+      <label>
+        <input type="checkbox" id="autoQR" checked />
+        <strong>Modo Automático QR:</strong> Detecta QR codes continuamente
+      </label>
+      <label>
+        <input type="checkbox" id="autoOCR" checked />
+        <strong>OCR Automático:</strong> Extrai número automaticamente após QR
+      </label>
+      <label>
+        <input type="checkbox" id="soundAlert" checked />
+        <strong>Alertas Sonoros:</strong> Bipe ao detectar código
+      </label>
+      <div id="qrDetected" style="display:none; background:#d4edda; padding:8px; border-radius:6px; margin-top:8px; border-left:4px solid #28a745;">
+        <strong>✅ QR Detectado:</strong> <span id="qrValue"></span>
+      </div>
+      <div id="scanningStatus" style="background:#d1ecf1; padding:8px; border-radius:6px; margin-top:8px; border-left:4px solid #17a2b8;">
+        <strong>🛒 MODO MERCADO ATIVADO!</strong>
+        <div style="font-size:0.85em; margin-top:4px; color:#0c5460;">
+          ✅ Aponte para o QR → Ouça o BIP → Próximo item!<br>
+          🤖 Tudo automático, sem apertar botões!<br>
+          📱 Deixe a câmera ligada e continue escaneando
+        </div>
+      </div>
+      <button id="scanBothBtn" class="success" style="width:100%; margin-top:8px; display:none;">
+        🚀 Escanear QR + Número Juntos (backup manual)
+      </button>
+    </div>
+
+    <!-- Seção de Importação da Planilha -->
+    <div class="import-section">
+      <h3>📥 Planilha de Ativos</h3>
+      <div class="sheet-info" id="sheetInfo">
+        <strong>Status:</strong> Nenhuma planilha carregada<br>
+        <small>Importe sua planilha do Google Sheets ou carregue um arquivo local</small>
+      </div>
+      
+      <div class="btn-group">
+        <div class="file-input-wrapper">
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
+          <label for="fileInput" class="file-input-label">📁 Carregar Arquivo (Excel/CSV)</label>
+        </div>
+      </div>
+      
+      <div style="text-align: center; margin: 12px 0; color: #7f8c8d; font-weight: 600;">— OU —</div>
+      
+      <input type="text" id="googleSheetUrl" placeholder="Cole o link do Google Sheets aqui" 
+             style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; margin: 8px 0; font-size: 1em;">
+      <button id="loadGoogleSheetBtn" style="background: #9b59b6; width: 100%;">🔗 Carregar do Google Sheets</button>
+      
+      <div style="margin-top: 12px;">
+        <label style="font-size: 0.9em; color: #7f8c8d;">
+          <strong>URL do Apps Script (para sincronização):</strong>
+        </label>
+        <input type="text" id="appsScriptUrl" placeholder="https://script.google.com/macros/s/.../exec" 
+               style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; margin: 8px 0; font-size: 0.9em;">
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <button id="testAppsScriptBtn" class="secondary" style="flex: 1;">🧪 Testar Conexão</button>
+          <button id="syncToSheetBtn" class="success" style="flex: 2;" disabled>☁️ Sincronizar com Google Sheets</button>
+        </div>
+      </div>
+      
+      <div id="syncStatus" class="sync-status"></div>
+    </div>
+
+    <div class="alert">
+      <strong>💡 Como usar:</strong><br>
+      1️⃣ Clique em "Iniciar Câmera"<br>
+      2️⃣ Aponte para a <strong>ETIQUETA COMPLETA</strong> (QR + número lado a lado)<br>
+      3️⃣ Clique no botão verde <strong>"🚀 Escanear QR + Número Juntos"</strong><br>
+      4️⃣ Aguarde processamento (QR + OCR automáticos)<br>
+      5️⃣ Sistema compara e mostra se está OK ou Erro<br>
+      6️⃣ Repita para próxima etiqueta<br>
+      7️⃣ Exporte tudo para Excel quando terminar
+    </div>
+
+    <!-- Seção de exportação -->
+    <div class="export-section">
+      <h3>📊 Exportar Dados</h3>
+      <input id="sheetName" type="text" placeholder="Nome da planilha" value="verificacao_patrimonio" />
+      <div class="btn-group">
+        <button id="exportBtn" class="success">⬇ Baixar Excel</button>
+        <button id="clearBtn" class="danger">🗑 Limpar Tudo</button>
+      </div>
+    </div>
+
+    <!-- Resultados -->
+    <div class="results-section">
+      <h3>📝 Últimas Verificações</h3>
+      <div id="resultsList"></div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // ESTADO DA APLICAÇÃO
+    // ============================================
+    const results = [];
+    let html5QrScanner = null;
+    let qrContinuous = false;
+    let currentCameraId = null;
+    let recordId = 0;
+    let lastQRCode = null;
+    let lastQRTime = 0;
+    let lastOCRText = null;
+    let lastOCRTime = 0;
+    
+    // Planilha de ativos importada
+    let assetDatabase = [];
+    let assetsByPatrimonio = new Map();
+    let appsScriptDeployUrl = '';
+
+    // ============================================
+    // ELEMENTOS DO DOM
+    // ============================================
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const scanOnceBtn = document.getElementById('scanOnceBtn');
+    const scanBothBtn = document.getElementById('scanBothBtn');
+    const autoQR = document.getElementById('autoQR');
+    const autoOCR = document.getElementById('autoOCR');
+    const soundAlert = document.getElementById('soundAlert');
+    const resultsList = document.getElementById('resultsList');
+    const reader = document.getElementById('reader');
+    const cameraControls = document.getElementById('cameraControls');
+    
+    // Elementos de importação e sincronização
+    const fileInput = document.getElementById('fileInput');
+    const googleSheetUrl = document.getElementById('googleSheetUrl');
+    const loadGoogleSheetBtn = document.getElementById('loadGoogleSheetBtn');
+    const appsScriptUrl = document.getElementById('appsScriptUrl');
+    const syncToSheetBtn = document.getElementById('syncToSheetBtn');
+    const testAppsScriptBtn = document.getElementById('testAppsScriptBtn');
+    const sheetInfo = document.getElementById('sheetInfo');
+    const syncStatus = document.getElementById('syncStatus');
+
+    // ============================================
+    // UTILITÁRIOS
+    // ============================================
+    function onlyDigits(str) {
+      if (!str) return '';
+      const matches = str.match(/\d+/g);
+      if (!matches) return '';
+      
+      // Se houver múltiplos números, pegar o maior (mais provável de ser o correto)
+      if (matches.length > 1) {
+        const sorted = matches.sort((a, b) => b.length - a.length);
+        console.log('📊 Múltiplos números encontrados:', matches, '→ Escolhendo:', sorted[0]);
+        return sorted[0];
+      }
+      
+      return matches[0];
+    }
+
+    function playBeep(type = 'success') {
+      if (!soundAlert.checked) return;
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = type === 'success' ? 800 : type === 'error' ? 400 : 600;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+    }
+
+    function updateStats() {
+      const total = results.length;
+      const ok = results.filter(r => r.status === 'OK').length;
+      const err = results.filter(r => r.status === 'Erro').length;
+      const warn = results.filter(r => r.status === 'Aviso').length;
+      
+      document.getElementById('totalCount').textContent = total;
+      document.getElementById('okCount').textContent = ok;
+      document.getElementById('errCount').textContent = err;
+      document.getElementById('warnCount').textContent = warn;
+      
+      // 🛒 Atualizar contador no modo mercado
+      const scanningStatus = document.getElementById('scanningStatus');
+      if (scanningStatus && html5QrScanner) {
+        const title = scanningStatus.querySelector('strong');
+        if (title && title.textContent.includes('MODO MERCADO')) {
+          title.textContent = `🛒 MODO MERCADO ATIVADO! (${total} itens)`;
+        }
+      }
+    }
+
+    // ============================================
+    // IMPORTAÇÃO E SINCRONIZAÇÃO DA PLANILHA
+    // ============================================
+    
+    function processSheetData(data, source = 'arquivo') {
+      assetDatabase = data;
+      assetsByPatrimonio.clear();
+      
+      // Mapear por número de patrimônio (procura em todas as colunas possíveis)
+      data.forEach((row, index) => {
+        const rowValues = Object.values(row);
+        rowValues.forEach(value => {
+          if (value) {
+            const digits = onlyDigits(String(value));
+            if (digits && digits.length >= 4) {
+              assetsByPatrimonio.set(digits, { ...row, _rowIndex: index });
+            }
+          }
+        });
+      });
+      
+      sheetInfo.className = 'sheet-info loaded';
+      sheetInfo.innerHTML = `
+        <strong>✅ Planilha carregada com sucesso!</strong><br>
+        <small>Fonte: ${source} | ${assetDatabase.length} linhas | ${assetsByPatrimonio.size} patrimônios mapeados</small>
+      `;
+      
+      // Habilitar botão de sync se tiver URL do Apps Script
+      if (appsScriptUrl.value.trim()) {
+        syncToSheetBtn.disabled = false;
+      }
+      
+      // Salvar no localStorage
+      localStorage.setItem('patrimonio_assetDatabase', JSON.stringify(assetDatabase));
+      localStorage.setItem('patrimonio_appsScriptUrl', appsScriptUrl.value.trim());
+      
+      playBeep('success');
+    }
+    
+    async function handleFileImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      try {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+          
+          processSheetData(jsonData, `arquivo: ${file.name}`);
+        };
+        reader.readAsArrayBuffer(file);
+      } catch (err) {
+        console.error(err);
+        alert('❌ Erro ao ler arquivo: ' + err.message);
+      }
+    }
+    
+    async function loadFromGoogleSheets() {
+      const url = googleSheetUrl.value.trim();
+      if (!url) {
+        alert('⚠️ Cole o link do Google Sheets primeiro!');
+        return;
+      }
+      
+      loadGoogleSheetBtn.disabled = true;
+      loadGoogleSheetBtn.textContent = '⏳ Carregando...';
+      
+      try {
+        // Extrair ID da planilha
+        const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (!match) {
+          throw new Error('Link inválido. Use o formato: https://docs.google.com/spreadsheets/d/ID/edit');
+        }
+        
+        const sheetId = match[1];
+        
+        // Tentar carregar como CSV público
+        const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+        
+        const response = await fetch(csvUrl);
+        if (!response.ok) {
+          throw new Error('Não foi possível acessar a planilha. Certifique-se de que ela está publicada como CSV (Arquivo → Compartilhar → Publicar na Web → CSV)');
+        }
+        
+        const csvText = await response.text();
+        const workbook = XLSX.read(csvText, { type: 'string' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+        
+        processSheetData(jsonData, 'Google Sheets');
+        
+        // Salvar URL para futuras cargas
+        localStorage.setItem('patrimonio_googleSheetUrl', url);
+        
+      } catch (err) {
+        console.error(err);
+        alert('❌ ' + err.message);
+      } finally {
+        loadGoogleSheetBtn.disabled = false;
+        loadGoogleSheetBtn.textContent = '🔗 Carregar do Google Sheets';
+      }
+    }
+    
+    // ============================================
+    // TESTE DE CONEXÃO COM APPS SCRIPT
+    // ============================================
+    async function testAppsScript() {
+      const scriptUrl = appsScriptUrl.value.trim();
+      if (!scriptUrl) {
+        alert('⚠️ Digite a URL do Apps Script primeiro!');
+        return;
+      }
+      
+      testAppsScriptBtn.disabled = true;
+      testAppsScriptBtn.textContent = '⏳ Testando...';
+      syncStatus.className = 'sync-status';
+      syncStatus.textContent = '';
+      
+      try {
+        console.log('🧪 Testando conexão com:', scriptUrl);
+        
+        const response = await fetch(scriptUrl, {
+          method: 'GET',
+          redirect: 'follow'
+        });
+        
+        console.log('📥 Status HTTP:', response.status);
+        const text = await response.text();
+        console.log('📥 Resposta:', text);
+        
+        let resultado;
+        try {
+          resultado = JSON.parse(text);
+        } catch (e) {
+          throw new Error('Resposta não é JSON válido. Verifique se a URL está correta.');
+        }
+        
+        if (resultado.success) {
+          syncStatus.className = 'sync-status success';
+          syncStatus.textContent = `✅ Conexão OK! Apps Script está funcionando.\n${resultado.message || ''}`;
+          playBeep('success');
+          console.log('✅ Apps Script respondeu:', resultado);
+        } else {
+          syncStatus.className = 'sync-status error';
+          syncStatus.textContent = `❌ Apps Script retornou erro: ${resultado.error || 'Erro desconhecido'}`;
+          playBeep('error');
+        }
+        
+      } catch (err) {
+        console.error('❌ Erro no teste:', err);
+        syncStatus.className = 'sync-status error';
+        syncStatus.textContent = `❌ Erro ao conectar: ${err.message}\n\nVerifique:\n1. URL está correta?\n2. Apps Script foi implantado como "Aplicativo da Web"?\n3. Acesso configurado como "Qualquer pessoa"?`;
+        playBeep('error');
+      } finally {
+        testAppsScriptBtn.disabled = false;
+        testAppsScriptBtn.textContent = '🧪 Testar Conexão';
+      }
+    }
+
+    async function syncToGoogleSheets() {
+      const scriptUrl = appsScriptUrl.value.trim();
+      if (!scriptUrl) {
+        alert('⚠️ Configure a URL do Apps Script primeiro!');
+        return;
+      }
+      
+      if (results.length === 0) {
+        alert('⚠️ Nenhum dado para sincronizar!');
+        return;
+      }
+      
+      syncToSheetBtn.disabled = true;
+      syncToSheetBtn.textContent = '⏳ Sincronizando...';
+      syncStatus.className = 'sync-status';
+      syncStatus.textContent = '';
+      
+      try {
+        let sucessos = 0;
+        let erros = 0;
+        
+        // Enviar cada ativo individualmente
+        for (let i = 0; i < results.length; i++) {
+          const r = results[i];
+          const ativo = r.ocr_number || r.qr_digits;
+          
+          if (!ativo) {
+            erros++;
+            continue;
+          }
+          
+          syncToSheetBtn.textContent = `⏳ ${i + 1}/${results.length}...`;
+          
+          try {
+            const payload = {
+              action: 'updateAsset',
+              ativo: ativo,
+              situacao_atual: r.situacao_atual || '',
+              plaqueta_qr_code: r.plaqueta_qr_code || ''
+            };
+            
+            console.log('📤 Enviando:', payload);
+            
+            // Usar POST via form (bypass CORS)
+            const formData = new FormData();
+            formData.append('payload', JSON.stringify(payload));
+            
+            const response = await fetch(scriptUrl, {
+              method: 'POST',
+              body: formData,
+              redirect: 'follow'
+            });
+            
+            console.log('📥 Status HTTP:', response.status);
+            
+            // Tentar ler resposta
+            let resultado;
+            try {
+              const text = await response.text();
+              console.log('📥 Resposta texto:', text.substring(0, 200));
+              resultado = JSON.parse(text);
+              console.log('📥 Resposta JSON:', resultado);
+            } catch (parseErr) {
+              console.warn('⚠️ Não foi possível parsear resposta');
+              resultado = { success: true }; // Assumir sucesso se não conseguir ler
+            }
+            
+            if (resultado.success || response.ok) {
+              sucessos++;
+              console.log(`✅ Ativo ${ativo} sincronizado`);
+            } else {
+              console.error(`❌ Erro ao sincronizar ${ativo}:`, resultado.error);
+              erros++;
+            }
+            
+            // Pequena pausa entre requisições
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+          } catch (err) {
+            console.error('❌ Erro ao sincronizar ativo', ativo, err);
+            erros++;
+          }
+        }
+        
+        if (erros === 0) {
+          syncStatus.className = 'sync-status success';
+          syncStatus.textContent = `✅ ${sucessos} ativos sincronizados com sucesso! Verifique a planilha.`;
+          playBeep('success');
+        } else {
+          syncStatus.className = 'sync-status error';
+          syncStatus.textContent = `⚠️ ${sucessos} OK, ${erros} com erro. Verifique a planilha.`;
+          playBeep('warning');
+        }
+        
+      } catch (err) {
+        console.error(err);
+        syncStatus.className = 'sync-status error';
+        syncStatus.textContent = '❌ Erro ao sincronizar: ' + err.message;
+        playBeep('error');
+      } finally {
+        syncToSheetBtn.disabled = false;
+        syncToSheetBtn.textContent = '☁️ Sincronizar com Google Sheets';
+      }
+    }
+    
+    function findAssetByPatrimonio(numero) {
+      if (!numero) return null;
+      const digits = onlyDigits(numero);
+      return assetsByPatrimonio.get(digits) || null;
+    }
+
+    // ============================================
+    // GERENCIAMENTO DE RESULTADOS
+    // ============================================
+    function addResult(data) {
+      recordId += 1;
+      const row = {
+        id: recordId,
+        timestamp: new Date().toISOString(),
+        ...data
+      };
+      results.push(row);
+      renderResult(row);
+      updateStats();
+      
+      // Salvar no localStorage
+      localStorage.setItem('patrimonio_results', JSON.stringify(results));
+      localStorage.setItem('patrimonio_recordId', recordId);
+    }
+
+    function renderResult(r) {
+      const div = document.createElement('div');
+      div.className = `result-item ${r.status === 'OK' ? 'ok' : r.status === 'Erro' ? 'err' : 'warn'}`;
+      
+      const statusText = r.status === 'OK' ? '✓ OK' : r.status === 'Erro' ? '✗ ERRO' : '⚠ AVISO';
+      
+      let assetInfoHtml = '';
+      if (r.asset_info) {
+        assetInfoHtml = `
+          <dt>📦 Info do Ativo:</dt>
+          <dd style="background: #e8f4f8; padding: 6px; border-radius: 4px; margin-top: 4px;">
+            <strong>${r.asset_info}</strong>
+          </dd>
+        `;
+      }
+      
+      div.innerHTML = `
+        <div class="result-header">
+          <span class="result-id">#${r.id}</span>
+          <span class="result-status ${r.status === 'OK' ? 'ok' : r.status === 'Erro' ? 'err' : 'warn'}">${statusText}</span>
+        </div>
+        <dl class="result-details">
+          <dt>📱 Número OCR:</dt>
+          <dd>${r.ocr_number || '(não detectado)'}</dd>
+          
+          <dt>🔳 QR Code:</dt>
+          <dd>${r.qr_raw || '(não detectado)'}</dd>
+          
+          <dt>🔢 QR Números:</dt>
+          <dd>${r.qr_digits || '(sem números)'}</dd>
+          
+          <dt>⚖️ Comparação:</dt>
+          <dd><strong>${r.compare}</strong></dd>
+          
+          ${assetInfoHtml}
+          
+          <dt>� SITUAÇÃO ATUAL:</dt>
+          <dd style="background: ${r.situacao_atual === 'OK' ? '#d4edda' : '#fff3cd'}; padding: 4px 8px; border-radius: 4px; font-weight: bold;">
+            ${r.situacao_atual || '—'}
+          </dd>
+          
+          <dt>🏷️ PLAQUETA QR-CODE:</dt>
+          <dd style="background: ${r.plaqueta_qr_code === 'OK' ? '#d4edda' : r.plaqueta_qr_code === 'ERRO' ? '#f8d7da' : '#fff3cd'}; padding: 4px 8px; border-radius: 4px; font-weight: bold;">
+            ${r.plaqueta_qr_code || '—'}
+          </dd>
+          
+          <dt>�🕐 Data/Hora:</dt>
+          <dd>${new Date(r.timestamp).toLocaleString('pt-BR')}</dd>
+        </dl>
+        
+        <div style="display: flex; gap: 8px; margin-top: 12px; border-top: 1px solid #ddd; padding-top: 8px;">
+          <button onclick="editResult(${r.id})" style="flex: 1; padding: 8px; background: #f39c12; color: white; border: none; border-radius: 6px; font-size: 0.9em; cursor: pointer;">
+            ✏️ Editar
+          </button>
+          <button onclick="deleteResult(${r.id})" style="flex: 1; padding: 8px; background: #e74c3c; color: white; border: none; border-radius: 6px; font-size: 0.9em; cursor: pointer;">
+            🗑️ Excluir
+          </button>
+        </div>
+      `;
+      
+      div.dataset.id = r.id;
+      resultsList.insertBefore(div, resultsList.firstChild);
+      
+      // Limitar a exibição a 20 itens
+      while (resultsList.children.length > 20) {
+        resultsList.removeChild(resultsList.lastChild);
+      }
+    }
+
+    function loadSavedResults() {
+      const saved = localStorage.getItem('patrimonio_results');
+      const savedId = localStorage.getItem('patrimonio_recordId');
+      
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          results.push(...parsed);
+          recordId = parseInt(savedId) || results.length;
+          
+          // Renderizar os últimos 20
+          const toRender = results.slice(-20).reverse();
+          toRender.forEach(r => renderResult(r));
+          updateStats();
+        } catch (e) {
+          console.error('Erro ao carregar resultados salvos', e);
+        }
+      }
+    }
+
+    // ============================================
+    // CÂMERA E SCANNER
+    // ============================================
+    async function startCamera() {
+      if (html5QrScanner) return;
+      
+      const elementId = "reader";
+      html5QrScanner = new Html5Qrcode(elementId);
+      
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length) {
+          // Preferir câmera traseira
+          const back = devices.find(d => /back|rear|environment/i.test(d.label)) || devices[0];
+          currentCameraId = back.id;
+          
+          await html5QrScanner.start(
+            currentCameraId,
+            {
+              fps: 20,
+              qrbox: function(viewfinderWidth, viewfinderHeight) {
+                // Área grande mas com mínimo de 100px
+                const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                const qrboxSize = Math.max(100, Math.floor(minEdge * 0.8));
+                return { width: qrboxSize, height: qrboxSize };
+              },
+              aspectRatio: 1.0,
+              videoConstraints: {
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1920, min: 1280 },
+                height: { ideal: 1080, min: 720 },
+                focusMode: { ideal: "continuous" },
+                advanced: [
+                  { focusMode: "continuous" },
+                  { focusDistance: { ideal: 0.3 } }
+                ]
+              },
+              formatsToSupport: [0, 1, 2, 3, 4, 5],
+              experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
+              },
+              disableFlip: false
+            },
+            qrSuccessCallback,
+            qrErrorCallback
+          );
+          
+          console.log('✅ Scanner iniciado (FPS: 20, área: 90%, formatos: todos)');
+          console.log('� ═══════════════════════════════════════════');
+          console.log('🛒 MODO MERCADO ATIVADO!');
+          console.log('🛒 ═══════════════════════════════════════════');
+          console.log('📋 QR Automático:', autoQR.checked);
+          console.log('📋 OCR Automático:', autoOCR.checked);
+          console.log('🎯 Fluxo: Aponta QR → BIP → OCR → Próximo!');
+          console.log('� ═══════════════════════════════════════════');
+          
+          reader.style.display = 'block';
+          reader.classList.add('preview-overlay');
+          cameraControls.style.display = 'block';
+          scanBothBtn.style.display = 'block'; // Mostrar botão combinado (backup)
+          startBtn.disabled = true;
+          stopBtn.disabled = false;
+          scanOnceBtn.disabled = false;
+          qrContinuous = autoQR.checked;
+          
+          // Garantir que o vídeo seja exibido em tela cheia
+          setTimeout(() => {
+            const videoElement = reader.querySelector('video');
+            if (videoElement) {
+              videoElement.style.display = 'block';
+              videoElement.style.width = '100%';
+              videoElement.style.height = 'auto';
+            }
+          }, 500);
+        } else {
+          alert('❌ Nenhuma câmera encontrada no dispositivo');
+        }
+      } catch (e) {
+        console.error(e);
+        alert('❌ Erro ao iniciar câmera: ' + e.message);
+      }
+    }
+
+    async function stopCamera() {
+      if (!html5QrScanner) return;
+      
+      try {
+        await html5QrScanner.stop();
+      } catch (e) {
+        console.warn(e);
+      }
+      
+      html5QrScanner.clear();
+      html5QrScanner = null;
+      reader.style.display = 'none';
+      reader.classList.remove('preview-overlay');
+      cameraControls.style.display = 'none';
+      scanBothBtn.style.display = 'none'; // Ocultar botão combinado
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      scanOnceBtn.disabled = true;
+      qrContinuous = false;
+    }
+
+    function qrSuccessCallback(decodedText, decodedResult) {
+      const now = Date.now();
+      
+      // Evitar duplicatas (mesmo QR em menos de 3 segundos)
+      if (lastQRCode === decodedText && (now - lastQRTime) < 3000) {
+        return;
+      }
+      
+      lastQRCode = decodedText;
+      lastQRTime = now;
+      
+      console.log('✅ QR Code detectado:', decodedText);
+      playBeep('success');
+      
+      // Ocultar status de procura e mostrar QR detectado
+      const scanningStatus = document.getElementById('scanningStatus');
+      const qrDetectedDiv = document.getElementById('qrDetected');
+      const qrValueSpan = document.getElementById('qrValue');
+      
+      if (scanningStatus) scanningStatus.style.display = 'none';
+      
+      if (qrDetectedDiv && qrValueSpan) {
+        qrValueSpan.textContent = decodedText.substring(0, 50) + (decodedText.length > 50 ? '...' : '');
+        qrDetectedDiv.style.display = 'block';
+        setTimeout(() => { 
+          qrDetectedDiv.style.display = 'none';
+          if (scanningStatus) scanningStatus.style.display = 'block';
+        }, 5000);
+      }
+      
+      // 🤖 TENTAR PAREAMENTO AUTOMÁTICO
+      if (tryAutoPairing()) {
+        console.log('✅ Pareamento automático executado!');
+        return;
+      }
+      
+      // 🛒 MODO MERCADO: OCR automático SEMPRE após detectar QR
+      if (autoQR.checked && autoOCR.checked) {
+        console.log('🛒 MODO MERCADO: Iniciando OCR automático em 0.5 segundos...');
+        const scanningStatus = document.getElementById('scanningStatus');
+        if (scanningStatus) {
+          const originalHtml = scanningStatus.innerHTML;
+          scanningStatus.innerHTML = `<strong>� Processando OCR...</strong><div style="font-size:0.85em;margin-top:4px;">Aguarde...</div>`;
+          setTimeout(() => {
+            scanningStatus.innerHTML = originalHtml;
+          }, 3000);
+        }
+        setTimeout(() => scanOnce(decodedText), 500);
+      } else if (autoQR.checked) {
+        // Apenas registrar o QR sem OCR (se OCR automático estiver desativado)
+        console.log('📝 Registrando apenas QR (OCR desativado)');
+        handlePairing(null, decodedText);
+      }
+    }
+    
+    // Extrair número do patrimônio do QR (antes do traço ou espaço)
+    function extractPatrimonioFromQR(qrText) {
+      if (!qrText) return '';
+      
+      // Pegar tudo antes do primeiro traço, espaço ou caractere não numérico significativo
+      const match = qrText.match(/^(\d+)/);
+      if (match) {
+        return match[1];
+      }
+      
+      // Se não achou no início, tenta extrair qualquer sequência de dígitos
+      return onlyDigits(qrText);
+    }
+
+    function qrErrorCallback(err) {
+      // Ignorar erros normais de scan (quando não detecta QR)
+      // Apenas logar se for um erro diferente
+      if (err && !err.includes && typeof err === 'string' && !err.includes('NotFoundException')) {
+        console.log('⚠️ Erro QR:', err);
+      }
+    }
+
+    async function scanBoth() {
+      if (!html5QrScanner) {
+        alert('⚠️ Ative a câmera antes de escanear');
+        return;
+      }
+      
+      console.log('🚀 Escaneando QR + Número simultaneamente...');
+      
+      scanBothBtn.disabled = true;
+      scanOnceBtn.disabled = true;
+      scanBothBtn.textContent = '⏳ Capturando imagem...';
+      
+      try {
+        const container = document.getElementById('reader');
+        const video = container.querySelector('video');
+        
+        if (!video) {
+          alert('❌ Vídeo não encontrado');
+          return;
+        }
+
+        // Capturar imagem completa em alta resolução
+        const canvas = document.getElementById('videoCanvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        console.log('📐 Imagem capturada:', canvas.width, 'x', canvas.height);
+        
+        // Tentar detectar QR com múltiplas técnicas
+        let qrRaw = null;
+        scanBothBtn.textContent = '⏳ Procurando QR (1/6)...';
+        
+        // Tentativa 1: jsQR imagem completa
+        try {
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "dontInvert"
+          });
+          
+          if (qrCode && qrCode.data) {
+            qrRaw = qrCode.data;
+            console.log('✅ QR detectado (tent. 1 - jsQR completo):', qrRaw);
+          } else {
+            throw new Error('QR não encontrado');
+          }
+        } catch (e) {
+          console.log('❌ Tentativa 1/6 falhou');
+          scanBothBtn.textContent = '⏳ Procurando QR (2/6)...';
+          
+          // Tentativa 2: jsQR com inversão
+          try {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: "attemptBoth"
+            });
+            
+            if (qrCode && qrCode.data) {
+              qrRaw = qrCode.data;
+              console.log('✅ QR detectado (tent. 2 - jsQR invertido):', qrRaw);
+            } else {
+              throw new Error('QR não encontrado');
+            }
+          } catch (e2) {
+            console.log('❌ Tentativa 2/6 falhou');
+            scanBothBtn.textContent = '⏳ Procurando QR (3/6)...';
+            
+            // Tentativa 3: Lado esquerdo (50%)
+            try {
+              const leftWidth = Math.floor(canvas.width * 0.5);
+              const leftCanvas = document.createElement('canvas');
+              leftCanvas.width = leftWidth;
+              leftCanvas.height = canvas.height;
+              const leftCtx = leftCanvas.getContext('2d');
+              leftCtx.drawImage(canvas, 0, 0, leftWidth, canvas.height, 0, 0, leftWidth, canvas.height);
+              
+              const leftImageData = leftCtx.getImageData(0, 0, leftWidth, canvas.height);
+              const qrCode = jsQR(leftImageData.data, leftImageData.width, leftImageData.height, {
+                inversionAttempts: "attemptBoth"
+              });
+              
+              if (qrCode && qrCode.data) {
+                qrRaw = qrCode.data;
+                console.log('✅ QR detectado (tent. 3 - lado esquerdo):', qrRaw);
+              } else {
+                throw new Error('QR não encontrado');
+              }
+            } catch (e3) {
+              console.log('❌ Tentativa 3/6 falhou');
+              scanBothBtn.textContent = '⏳ Procurando QR (4/6)...';
+              
+              // Tentativa 4: Quadrante superior esquerdo
+              try {
+                const quadWidth = Math.floor(canvas.width * 0.5);
+                const quadHeight = Math.floor(canvas.height * 0.5);
+                const quadCanvas = document.createElement('canvas');
+                quadCanvas.width = quadWidth;
+                quadCanvas.height = quadHeight;
+                const quadCtx = quadCanvas.getContext('2d');
+                quadCtx.drawImage(canvas, 0, 0, quadWidth, quadHeight, 0, 0, quadWidth, quadHeight);
+                
+                const quadImageData = quadCtx.getImageData(0, 0, quadWidth, quadHeight);
+                const qrCode = jsQR(quadImageData.data, quadImageData.width, quadImageData.height, {
+                  inversionAttempts: "attemptBoth"
+                });
+                
+                if (qrCode && qrCode.data) {
+                  qrRaw = qrCode.data;
+                  console.log('✅ QR detectado (tent. 4 - quadrante superior):', qrRaw);
+                } else {
+                  throw new Error('QR não encontrado');
+                }
+              } catch (e4) {
+                console.log('❌ Tentativa 4/6 falhou');
+                scanBothBtn.textContent = '⏳ Procurando QR (5/6)...';
+                
+                // Tentativa 5: Escala de cinza + alto contraste
+                try {
+                  const grayCanvas = document.createElement('canvas');
+                  grayCanvas.width = canvas.width;
+                  grayCanvas.height = canvas.height;
+                  const grayCtx = grayCanvas.getContext('2d');
+                  grayCtx.filter = 'grayscale(100%) contrast(3)';
+                  grayCtx.drawImage(canvas, 0, 0);
+                  
+                  const grayImageData = grayCtx.getImageData(0, 0, grayCanvas.width, grayCanvas.height);
+                  const qrCode = jsQR(grayImageData.data, grayImageData.width, grayImageData.height, {
+                    inversionAttempts: "attemptBoth"
+                  });
+                  
+                  if (qrCode && qrCode.data) {
+                    qrRaw = qrCode.data;
+                    console.log('✅ QR detectado (tent. 5 - alto contraste):', qrRaw);
+                  } else {
+                    throw new Error('QR não encontrado');
+                  }
+                } catch (e5) {
+                  console.log('❌ Tentativa 5/6 falhou');
+                  scanBothBtn.textContent = '⏳ Procurando QR (6/6)...';
+                  
+                  // Tentativa 6: Imagem reduzida (menor resolução, mais rápido)
+                  try {
+                    const smallCanvas = document.createElement('canvas');
+                    smallCanvas.width = canvas.width / 2;
+                    smallCanvas.height = canvas.height / 2;
+                    const smallCtx = smallCanvas.getContext('2d');
+                    smallCtx.drawImage(canvas, 0, 0, smallCanvas.width, smallCanvas.height);
+                    
+                    const smallImageData = smallCtx.getImageData(0, 0, smallCanvas.width, smallCanvas.height);
+                    const qrCode = jsQR(smallImageData.data, smallImageData.width, smallImageData.height, {
+                      inversionAttempts: "attemptBoth"
+                    });
+                    
+                    if (qrCode && qrCode.data) {
+                      qrRaw = qrCode.data;
+                      console.log('✅ QR detectado (tent. 6 - resolução reduzida):', qrRaw);
+                    } else {
+                      throw new Error('QR não encontrado');
+                    }
+                  } catch (e6) {
+                    console.log('⚠️ QR não encontrado após 6 tentativas, continuando com OCR...');
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        // Fazer OCR na imagem completa
+        scanBothBtn.textContent = '⏳ OCR 0%...';
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+        const { data: { text } } = await Tesseract.recognize(blob, 'por', {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              scanBothBtn.textContent = `⏳ OCR ${Math.floor(m.progress * 100)}%...`;
+            }
+          }
+        });
+
+        const ocrText = text.trim();
+        const ocrDigits = onlyDigits(ocrText);
+        
+        console.log('📝 OCR completo:', ocrText);
+        console.log('🔢 Dígitos extraídos:', ocrDigits);
+        console.log('🔖 QR final:', qrRaw || 'NÃO DETECTADO');
+
+        await handlePairing(ocrDigits || ocrText, qrRaw);
+        
+      } catch (err) {
+        console.error(err);
+        alert('❌ Erro: ' + err.message);
+        playBeep('error');
+      } finally {
+        scanBothBtn.disabled = false;
+        scanOnceBtn.disabled = false;
+        scanBothBtn.textContent = '🚀 Escanear QR + Número Juntos';
+      }
+    }
+
+    
+    async function scanOnce(qrFromAuto = null) {
+      if (!html5QrScanner) {
+        alert('⚠️ Ative a câmera antes de escanear');
+        return;
+      }
+      
+      console.log('📸 Iniciando scan OCR com QR:', qrFromAuto);
+      
+      scanOnceBtn.disabled = true;
+      scanOnceBtn.textContent = '⏳ Processando OCR...';
+      
+      try {
+        // Procurar elemento de vídeo interno
+        const container = document.getElementById('reader');
+        const video = container.querySelector('video');
+        
+        if (!video) {
+          alert('❌ Vídeo não encontrado — tente reiniciar a câmera');
+          return;
+        }
+
+        // Desenhar frame no canvas
+        const canvas = document.getElementById('videoCanvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Recortar região central para melhorar OCR
+        const w = canvas.width, h = canvas.height;
+        const size = Math.min(w, h) * 0.7;
+        const sx = (w - size) / 2, sy = (h - size) / 2;
+
+        const cropped = document.createElement('canvas');
+        cropped.width = size;
+        cropped.height = size;
+        const cctx = cropped.getContext('2d');
+        cctx.drawImage(canvas, sx, sy, size, size, 0, 0, size, size);
+
+        // Se QR veio do modo automático, usar ele diretamente
+        let qrRaw = qrFromAuto;
+        console.log('🔖 QR para usar:', qrRaw);
+        
+        // Tentar extrair QR da imagem apenas se não foi passado
+        if (!qrRaw) {
+          try {
+            const dataUrl = cropped.toDataURL('image/png');
+            const qrResult = await Html5Qrcode.scanFile(dataUrl, true);
+            if (qrResult) {
+              qrRaw = qrResult;
+              console.log('✅ QR extraído da imagem:', qrRaw);
+            }
+          } catch (e) {
+            console.log('⚠️ QR não encontrado na imagem estática');
+          }
+        }
+
+        // OCR com Tesseract
+        const blob = await new Promise(res => cropped.toBlob(res, 'image/png'));
+        const { data: { text } } = await Tesseract.recognize(blob, 'por', {
+          logger: m => console.log(m.status, m.progress)
+        });
+
+        const ocrText = text.trim();
+        const ocrDigits = onlyDigits(ocrText);
+        
+        console.log('✅ OCR detectado:', ocrDigits || ocrText);
+        
+        // Armazenar OCR para pareamento automático
+        lastOCRText = ocrDigits || ocrText;
+        lastOCRTime = Date.now();
+        
+        // 🤖 TENTAR PAREAMENTO AUTOMÁTICO
+        if (tryAutoPairing()) {
+          console.log('✅ Pareamento automático executado após OCR!');
+        } else {
+          // Pareamento manual tradicional
+          await handlePairing(ocrDigits || ocrText, qrRaw);
+        }
+        
+      } catch (err) {
+        console.error(err);
+        alert('❌ Erro ao escanear: ' + err.message);
+        playBeep('error');
+      } finally {
+        scanOnceBtn.disabled = false;
+        scanOnceBtn.textContent = '📸 Escanear Agora';
+      }
+    }
+
+ 
+    // ============================================
+    // PAREAMENTO AUTOMÁTICO
+    // ============================================
+    function tryAutoPairing() {
+      const now = Date.now();
+      
+      // Verificar se temos QR e OCR recentes (últimos 5 segundos)
+      const hasRecentQR = lastQRCode && (now - lastQRTime) < 5000;
+      const hasRecentOCR = lastOCRText && (now - lastOCRTime) < 5000;
+      
+      if (hasRecentQR && hasRecentOCR) {
+        console.log('🤖 PAREAMENTO AUTOMÁTICO detectado!');
+        console.log('   QR:', lastQRCode);
+        console.log('   OCR:', lastOCRText);
+        
+        // Fazer o pareamento
+        handlePairing(lastOCRText, lastQRCode);
+        
+        // Limpar para evitar duplicatas
+        lastQRCode = null;
+        lastOCRText = null;
+        lastQRTime = 0;
+        lastOCRTime = 0;
+        
+        // Feedback visual
+        playBeep('success');
+        
+        return true;
+      }
+      
+      return false;
+    }
+
+    async function handlePairing(ocrNumber, qrRaw) {
+      console.log('🔍 handlePairing chamado:', { ocrNumber, qrRaw });
+      
+      const ocrDigits = onlyDigits(ocrNumber);
+      
+      // Extrair apenas o número do patrimônio do QR (antes do traço/descrição)
+      const qrPatrimonio = extractPatrimonioFromQR(qrRaw);
+      const qrDigits = qrPatrimonio || onlyDigits(qrRaw);
+      
+      console.log('📊 Processado:', { ocrDigits, qrDigits, qrRaw });
+
+      let status = 'Erro';
+      let compare = '—';
+      let assetInfo = '';
+      let situacaoAtual = '';
+      let plaquetaQrCode = '';
+
+      // Buscar ativo na planilha importada
+      const patrimonio = ocrDigits || qrDigits;
+      if (patrimonio && assetDatabase.length > 0) {
+        const asset = findAssetByPatrimonio(patrimonio);
+        if (asset) {
+          // Extrair informações relevantes do ativo
+          const assetDetails = [];
+          for (const [key, value] of Object.entries(asset)) {
+            if (key !== '_rowIndex' && value && !key.match(/^\d+$/)) {
+              assetDetails.push(`${key}: ${value}`);
+            }
+          }
+          assetInfo = assetDetails.slice(0, 3).join(' | ') || 'Encontrado na planilha';
+          
+          // SITUAÇÃO ATUAL: OK se encontrou na planilha
+          situacaoAtual = 'OK';
+        } else {
+          assetInfo = '⚠️ NÃO encontrado na planilha';
+          situacaoAtual = 'NÃO ENCONTRADO';
+        }
+      }
+
+      if (ocrDigits && qrDigits) {
+        if (ocrDigits === qrDigits) {
+          compare = '✓ Números Iguais (QR OK)';
+          status = 'OK';
+          plaquetaQrCode = 'OK';
+          playBeep('success');
+        } else {
+          compare = `✗ Divergentes (OCR: ${ocrDigits} ≠ QR: ${qrDigits})`;
+          status = 'Erro';
+          plaquetaQrCode = 'ERRO';
+          playBeep('error');
+        }
+      } else if (qrDigits && !ocrDigits) {
+        compare = '⚠ Somente QR detectado (OCR falhou)';
+        status = 'Aviso';
+        plaquetaQrCode = 'AVISO - Só QR';
+        playBeep('warning');
+      } else if (ocrDigits && !qrDigits) {
+        compare = '⚠ Somente OCR detectado (QR não lido)';
+        status = 'Aviso';
+        plaquetaQrCode = 'AVISO - Só OCR';
+        playBeep('warning');
+      } else {
+        compare = '✗ Nenhum código detectado';
+        status = 'Erro';
+        plaquetaQrCode = 'ERRO';
+        playBeep('error');
+      }
+
+      console.log('✅ Resultado:', { status, compare, situacaoAtual, plaquetaQrCode });
+
+      addResult({
+        ocr_number: ocrNumber,
+        qr_raw: qrRaw,
+        qr_digits: qrDigits,
+        compare,
+        status,
+        asset_info: assetInfo,
+        situacao_atual: situacaoAtual,
+        plaqueta_qr_code: plaquetaQrCode
+      });
+      
+      // 🛒 MODO MERCADO: Mostrar feedback rápido e continuar
+      const scanningStatus = document.getElementById('scanningStatus');
+      if (scanningStatus) {
+        const originalBg = scanningStatus.style.background;
+        const originalBorder = scanningStatus.style.borderLeft;
+        const originalHtml = scanningStatus.innerHTML;
+        
+        // Feedback visual rápido baseado no status
+        if (status === 'OK') {
+          scanningStatus.style.background = '#d4edda';
+          scanningStatus.style.borderLeft = '4px solid #28a745';
+          scanningStatus.innerHTML = `<strong>✅ ITEM ${ocrDigits || qrDigits} REGISTRADO!</strong><div style="font-size:0.85em;margin-top:4px;">Aponte para o próximo QR...</div>`;
+        } else if (status === 'Erro') {
+          scanningStatus.style.background = '#f8d7da';
+          scanningStatus.style.borderLeft = '4px solid #dc3545';
+          scanningStatus.innerHTML = `<strong>❌ ERRO - Verifique o item!</strong><div style="font-size:0.85em;margin-top:4px;">Aponte para o próximo QR...</div>`;
+        } else {
+          scanningStatus.style.background = '#fff3cd';
+          scanningStatus.style.borderLeft = '4px solid #ffc107';
+          scanningStatus.innerHTML = `<strong>⚠️ AVISO - Verificar depois!</strong><div style="font-size:0.85em;margin-top:4px;">Aponte para o próximo QR...</div>`;
+        }
+        
+        // Voltar ao estado original após 2 segundos
+        setTimeout(() => {
+          scanningStatus.style.background = originalBg;
+          scanningStatus.style.borderLeft = originalBorder;
+          scanningStatus.innerHTML = originalHtml;
+        }, 2000);
+      }
+      
+      console.log('🛒 Pronto para o próximo item!');
+    }
+
+    
+    function exportToExcel() {
+      if (results.length === 0) {
+        alert('⚠️ Nada para exportar. Escaneie alguns itens primeiro.');
+        return;
+      }
+
+      const ws_data = [
+        ['ID', 'Data/Hora', 'Ativo', 'QR Code Completo', 'Comparação', 'Status', 'SITUAÇÃO ATUAL', 'PLAQUETA QR-CODE']
+      ].concat(
+        results.map(r => [
+          r.id,
+          new Date(r.timestamp).toLocaleString('pt-BR'),
+          r.ocr_number || r.qr_digits || '',
+          r.qr_raw || '',
+          r.compare,
+          r.status,
+          r.situacao_atual || '',
+          r.plaqueta_qr_code || ''
+        ])
+      );
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(ws_data);
+      
+      // Auto-dimensionar colunas
+      ws['!cols'] = [
+        { wch: 5 },   // ID
+        { wch: 20 },  // Data/Hora
+        { wch: 15 },  // Ativo
+        { wch: 30 },  // QR Code Completo
+        { wch: 35 },  // Comparação
+        { wch: 10 },  // Status
+        { wch: 18 },  // SITUAÇÃO ATUAL
+        { wch: 18 }   // PLAQUETA QR-CODE
+      ];
+
+      const sheetName = document.getElementById('sheetName').value || 'verificacao_patrimonio';
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `patrimonio_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      playBeep('success');
+      alert(`✓ Excel exportado com ${results.length} registros!`);
+    }
+
+    function clearAll() {
+      if (!confirm('⚠️ Deseja realmente limpar TODOS os dados? Esta ação não pode ser desfeita.')) {
+        return;
+      }
+      
+      results.length = 0;
+      recordId = 0;
+      resultsList.innerHTML = '';
+      updateStats();
+      localStorage.removeItem('patrimonio_results');
+      localStorage.removeItem('patrimonio_recordId');
+      
+      alert('✓ Dados limpos com sucesso!');
+    }
+
+    // ============================================
+    // EDITAR E EXCLUIR VERIFICAÇÕES
+    // ============================================
+    function deleteResult(id) {
+      if (!confirm('⚠️ Deseja realmente excluir esta verificação?')) {
+        return;
+      }
+      
+      const index = results.findIndex(r => r.id === id);
+      if (index !== -1) {
+        results.splice(index, 1);
+      }
+      
+      const element = resultsList.querySelector(`[data-id="${id}"]`);
+      if (element) {
+        element.remove();
+      }
+      
+      localStorage.setItem('patrimonio_results', JSON.stringify(results));
+      updateStats();
+      playBeep('success');
+    }
+
+    function editResult(id) {
+      const result = results.find(r => r.id === id);
+      if (!result) return;
+      
+      const element = resultsList.querySelector(`[data-id="${id}"]`);
+      if (!element) return;
+      
+      element.dataset.originalHtml = element.innerHTML;
+      element.innerHTML = `
+        <div style="background: #fff3cd; padding: 12px; border-radius: 8px; border-left: 4px solid #f39c12;">
+          <h4 style="margin: 0 0 12px 0;">✏️ Editando #${id}</h4>
+          
+          <div style="display: grid; gap: 8px;">
+            <div>
+              <label style="font-size: 0.9em; font-weight: bold;">SITUAÇÃO ATUAL:</label>
+              <select id="edit_situacao_${id}" style="width: 100%; padding: 6px; border-radius: 4px; border: 2px solid #ddd;">
+                <option value="OK" ${result.situacao_atual === 'OK' ? 'selected' : ''}>OK</option>
+                <option value="NÃO ENCONTRADO" ${result.situacao_atual === 'NÃO ENCONTRADO' ? 'selected' : ''}>NÃO ENCONTRADO</option>
+              </select>
+            </div>
+            
+            <div>
+              <label style="font-size: 0.9em; font-weight: bold;">PLAQUETA QR-CODE:</label>
+              <select id="edit_plaqueta_${id}" style="width: 100%; padding: 6px; border-radius: 4px; border: 2px solid #ddd;">
+                <option value="OK" ${result.plaqueta_qr_code === 'OK' ? 'selected' : ''}>OK</option>
+                <option value="ERRO" ${result.plaqueta_qr_code === 'ERRO' ? 'selected' : ''}>ERRO</option>
+                <option value="AVISO - Só QR" ${result.plaqueta_qr_code === 'AVISO - Só QR' ? 'selected' : ''}>AVISO - Só QR</option>
+                <option value="AVISO - Só OCR" ${result.plaqueta_qr_code === 'AVISO - Só OCR' ? 'selected' : ''}>AVISO - Só OCR</option>
+              </select>
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 8px; margin-top: 12px;">
+            <button onclick="saveEdit(${id})" style="flex: 1; padding: 8px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">
+              ✓ Salvar
+            </button>
+            <button onclick="cancelEdit(${id})" style="flex: 1; padding: 8px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer;">
+              ✗ Cancelar
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function saveEdit(id) {
+      const result = results.find(r => r.id === id);
+      if (!result) return;
+      
+      const situacaoSelect = document.getElementById(`edit_situacao_${id}`);
+      const plaquetaSelect = document.getElementById(`edit_plaqueta_${id}`);
+      
+      if (!situacaoSelect || !plaquetaSelect) return;
+      
+      result.situacao_atual = situacaoSelect.value;
+      result.plaqueta_qr_code = plaquetaSelect.value;
+      
+      if (result.plaqueta_qr_code === 'OK') {
+        result.status = 'OK';
+      } else if (result.plaqueta_qr_code === 'ERRO') {
+        result.status = 'Erro';
+      } else {
+        result.status = 'Aviso';
+      }
+      
+      localStorage.setItem('patrimonio_results', JSON.stringify(results));
+      
+      const element = resultsList.querySelector(`[data-id="${id}"]`);
+      if (element) {
+        element.remove();
+      }
+      renderResult(result);
+      updateStats();
+      playBeep('success');
+    }
+
+    function cancelEdit(id) {
+      const element = resultsList.querySelector(`[data-id="${id}"]`);
+      if (!element || !element.dataset.originalHtml) return;
+      
+      element.innerHTML = element.dataset.originalHtml;
+      delete element.dataset.originalHtml;
+    }
+
+    // ============================================
+    // INICIALIZAÇÃO
+    // ============================================
+    function initApp() {
+      startBtn.addEventListener('click', startCamera);
+      stopBtn.addEventListener('click', stopCamera);
+      scanOnceBtn.addEventListener('click', () => scanOnce());
+      scanBothBtn.addEventListener('click', scanBoth);
+      exportBtn.addEventListener('click', exportToExcel);
+      clearBtn.addEventListener('click', clearAll);
+
+      autoQR.addEventListener('change', () => {
+        qrContinuous = autoQR.checked;
+      });
+      
+      // Importação e sincronização
+      fileInput.addEventListener('change', handleFileImport);
+      loadGoogleSheetBtn.addEventListener('click', loadFromGoogleSheets);
+      testAppsScriptBtn.addEventListener('click', testAppsScript);
+      syncToSheetBtn.addEventListener('click', syncToGoogleSheets);
+      
+      appsScriptUrl.addEventListener('input', () => {
+        if (appsScriptUrl.value.trim() && assetDatabase.length > 0) {
+          syncToSheetBtn.disabled = false;
+        } else {
+          syncToSheetBtn.disabled = true;
+        }
+      });
+
+      // Prevenir zoom em iOS
+      document.addEventListener('gesturestart', e => e.preventDefault());
+
+      // Parar câmera ao fechar
+      window.addEventListener('beforeunload', () => {
+        if (html5QrScanner) {
+          html5QrScanner.stop().catch(() => {});
+        }
+      });
+      
+      loadSavedResults();
+      
+      // Carregar planilha salva
+      const savedDatabase = localStorage.getItem('patrimonio_assetDatabase');
+      const savedGoogleUrl = localStorage.getItem('patrimonio_googleSheetUrl');
+      const savedAppsScriptUrl = localStorage.getItem('patrimonio_appsScriptUrl');
+      
+      if (savedDatabase) {
+        try {
+          assetDatabase = JSON.parse(savedDatabase);
+          assetDatabase.forEach((row, index) => {
+            const rowValues = Object.values(row);
+            rowValues.forEach(value => {
+              if (value) {
+                const digits = onlyDigits(String(value));
+                if (digits && digits.length >= 4) {
+                  assetsByPatrimonio.set(digits, { ...row, _rowIndex: index });
+                }
+              }
+            });
+          });
+          
+          sheetInfo.className = 'sheet-info loaded';
+          sheetInfo.innerHTML = `
+            <strong>✅ Planilha carregada (salva anteriormente)</strong><br>
+            <small>${assetDatabase.length} linhas | ${assetsByPatrimonio.size} patrimônios</small>
+          `;
+        } catch (e) {
+          console.error('Erro ao carregar planilha salva', e);
+        }
+      }
+      
+      if (savedGoogleUrl) {
+        googleSheetUrl.value = savedGoogleUrl;
+      }
+      
+      if (savedAppsScriptUrl) {
+        appsScriptUrl.value = savedAppsScriptUrl;
+        if (assetDatabase.length > 0) {
+          syncToSheetBtn.disabled = false;
+        }
+      }
+      
+      console.log('✓ App de Verificação de Patrimônio carregado');
+      
+      // Registrar Service Worker para PWA
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('✓ Service Worker registrado', reg))
+          .catch(err => console.log('✗ Erro ao registrar SW', err));
+      }
+    }
+    
+    // Aguardar bibliotecas carregarem antes de inicializar
+    window.addEventListener('DOMContentLoaded', async () => {
+      console.log('⏳ Aguardando bibliotecas externas...');
+      await waitForLibraries();
+      console.log('✓ Bibliotecas carregadas');
+      initApp();
+    });
+  </script>
+</body>
+</html>
