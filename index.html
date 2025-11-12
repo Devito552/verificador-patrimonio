@@ -380,11 +380,14 @@
       <div id="scanningStatus" style="background:#fff3cd; padding:8px; border-radius:6px; margin-top:8px; border-left:4px solid #f39c12;">
         <strong>🔍 Procurando QR code...</strong>
         <div style="font-size:0.85em; margin-top:4px; color:#856404;">
-          • Aponte a câmera para o QR code<br>
-          • Mantenha a etiqueta dentro do quadrado amarelo<br>
-          • Aproxime ou afaste até ficar nítido
+          • Aponte para a ETIQUETA COMPLETA (QR + número)<br>
+          • Mantenha dentro do quadrado amarelo<br>
+          • Se não detectar QR, clique "Escanear Agora"
         </div>
       </div>
+      <button id="scanBothBtn" class="success" style="width:100%; margin-top:8px; display:none;">
+        🚀 Escanear QR + Número Juntos
+      </button>
     </div>
 
     <!-- Seção de Importação da Planilha -->
@@ -423,11 +426,12 @@
     <div class="alert">
       <strong>💡 Como usar:</strong><br>
       1️⃣ Clique em "Iniciar Câmera"<br>
-      2️⃣ Aponte para a etiqueta de patrimônio<br>
-      3️⃣ O app lerá automaticamente o QR code<br>
-      4️⃣ Clique em "Escanear Agora" para extrair o número impresso (OCR)<br>
-      5️⃣ O sistema compara e registra se está OK ou com erro<br>
-      6️⃣ Exporte tudo para Excel quando terminar
+      2️⃣ Aponte PRIMEIRO para o <strong>QR code</strong> (quadrado pequeno à esquerda)<br>
+      3️⃣ Aguarde o BIPE - QR detectado automaticamente!<br>
+      4️⃣ O app fará OCR automático do <strong>número impresso</strong> (1226375)<br>
+      5️⃣ Sistema compara QR vs número impresso<br>
+      6️⃣ Se não detectar QR, clique "Escanear Agora" e aponte pro número<br>
+      7️⃣ Exporte tudo para Excel quando terminar
     </div>
 
     <!-- Seção de exportação -->
@@ -472,6 +476,7 @@
     const exportBtn = document.getElementById('exportBtn');
     const clearBtn = document.getElementById('clearBtn');
     const scanOnceBtn = document.getElementById('scanOnceBtn');
+    const scanBothBtn = document.getElementById('scanBothBtn');
     const autoQR = document.getElementById('autoQR');
     const autoOCR = document.getElementById('autoOCR');
     const soundAlert = document.getElementById('soundAlert');
@@ -804,35 +809,41 @@
           await html5QrScanner.start(
             currentCameraId,
             {
-              fps: 30, // Aumentar FPS para detectar mais rápido
+              fps: 20, // FPS balanceado
               qrbox: function(viewfinderWidth, viewfinderHeight) {
-                // Área maior de detecção - 70% da tela
+                // Área BEM GRANDE de detecção - 90% da tela
                 const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                const qrboxSize = Math.floor(minEdge * 0.7);
+                const qrboxSize = Math.floor(minEdge * 0.9);
                 return { width: qrboxSize, height: qrboxSize };
               },
               aspectRatio: 1.0,
               videoConstraints: {
                 facingMode: "environment",
-                focusMode: "continuous"
+                focusMode: "continuous",
+                advanced: [{ zoom: 1.0 }]
               },
-              // Tentar detectar QR codes menores e mais distantes
-              formatsToSupport: [0], // QR_CODE
+              // Detectar todos os tipos de código
+              formatsToSupport: [0, 1, 2, 3, 4, 5], // QR, Code128, Code39, EAN, etc
               experimentalFeatures: {
                 useBarCodeDetectorIfSupported: true
-              }
+              },
+              // Melhorar detecção
+              disableFlip: false,
+              verbose: true
             },
             qrSuccessCallback,
             qrErrorCallback
           );
           
-          console.log('✅ Scanner QR iniciado com sucesso (FPS: 30, área: 70%)');
+          console.log('✅ Scanner iniciado (FPS: 20, área: 90%, formatos: todos)');
           console.log('📋 Modo automático QR:', autoQR.checked);
           console.log('📋 OCR automático:', autoOCR.checked);
+          console.log('💡 DICA: Use o botão "Escanear QR + Número Juntos"!');
           
           reader.style.display = 'block';
           reader.classList.add('preview-overlay');
           cameraControls.style.display = 'block';
+          scanBothBtn.style.display = 'block'; // Mostrar botão combinado
           startBtn.disabled = true;
           stopBtn.disabled = false;
           scanOnceBtn.disabled = false;
@@ -870,6 +881,7 @@
       reader.style.display = 'none';
       reader.classList.remove('preview-overlay');
       cameraControls.style.display = 'none';
+      scanBothBtn.style.display = 'none'; // Ocultar botão combinado
       startBtn.disabled = false;
       stopBtn.disabled = true;
       scanOnceBtn.disabled = true;
@@ -939,6 +951,77 @@
       // Apenas logar se for um erro diferente
       if (err && !err.includes && typeof err === 'string' && !err.includes('NotFoundException')) {
         console.log('⚠️ Erro QR:', err);
+      }
+    }
+
+    // ============================================
+    // ESCANEAR QR + NÚMERO JUNTOS
+    // ============================================
+    async function scanBoth() {
+      if (!html5QrScanner) {
+        alert('⚠️ Ative a câmera antes de escanear');
+        return;
+      }
+      
+      console.log('🚀 Escaneando QR + Número simultaneamente...');
+      
+      scanBothBtn.disabled = true;
+      scanOnceBtn.disabled = true;
+      scanBothBtn.textContent = '⏳ Processando...';
+      
+      try {
+        const container = document.getElementById('reader');
+        const video = container.querySelector('video');
+        
+        if (!video) {
+          alert('❌ Vídeo não encontrado');
+          return;
+        }
+
+        // Capturar imagem completa
+        const canvas = document.getElementById('videoCanvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const dataUrl = canvas.toDataURL('image/png');
+        
+        // Tentar detectar QR na imagem completa
+        let qrRaw = null;
+        try {
+          qrRaw = await Html5Qrcode.scanFile(dataUrl, true);
+          console.log('✅ QR detectado na imagem:', qrRaw);
+        } catch (e) {
+          console.log('⚠️ QR não encontrado, continuando com OCR...');
+        }
+        
+        // Fazer OCR na imagem completa
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+        const { data: { text } } = await Tesseract.recognize(blob, 'por', {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              scanBothBtn.textContent = `⏳ OCR ${Math.floor(m.progress * 100)}%...`;
+            }
+          }
+        });
+
+        const ocrText = text.trim();
+        const ocrDigits = onlyDigits(ocrText);
+        
+        console.log('📝 OCR extraído:', ocrText);
+        console.log('🔢 Dígitos OCR:', ocrDigits);
+
+        await handlePairing(ocrDigits || ocrText, qrRaw);
+        
+      } catch (err) {
+        console.error(err);
+        alert('❌ Erro: ' + err.message);
+        playBeep('error');
+      } finally {
+        scanBothBtn.disabled = false;
+        scanOnceBtn.disabled = false;
+        scanBothBtn.textContent = '🚀 Escanear QR + Número Juntos';
       }
     }
 
@@ -1176,6 +1259,7 @@
       startBtn.addEventListener('click', startCamera);
       stopBtn.addEventListener('click', stopCamera);
       scanOnceBtn.addEventListener('click', () => scanOnce());
+      scanBothBtn.addEventListener('click', scanBoth);
       exportBtn.addEventListener('click', exportToExcel);
       clearBtn.addEventListener('click', clearAll);
 
