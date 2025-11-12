@@ -875,6 +875,20 @@
         }
       }
     }
+    
+    // Extrair número do patrimônio do QR (antes do traço ou espaço)
+    function extractPatrimonioFromQR(qrText) {
+      if (!qrText) return '';
+      
+      // Pegar tudo antes do primeiro traço, espaço ou caractere não numérico significativo
+      const match = qrText.match(/^(\d+)/);
+      if (match) {
+        return match[1];
+      }
+      
+      // Se não achou no início, tenta extrair qualquer sequência de dígitos
+      return onlyDigits(qrText);
+    }
 
     function qrErrorCallback(err) {
       // Ignorar erros normais de scan
@@ -958,7 +972,10 @@
     // ============================================
     async function handlePairing(ocrNumber, qrRaw) {
       const ocrDigits = onlyDigits(ocrNumber);
-      const qrDigits = onlyDigits(qrRaw);
+      
+      // Extrair apenas o número do patrimônio do QR (antes do traço/descrição)
+      const qrPatrimonio = extractPatrimonioFromQR(qrRaw);
+      const qrDigits = qrPatrimonio || onlyDigits(qrRaw);
 
       let status = 'Erro';
       let compare = '—';
