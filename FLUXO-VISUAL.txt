@@ -1,0 +1,225 @@
+┌──────────────────────────────────────────────────────────────────┐
+│                                                                  │
+│         📋 VERIFICADOR DE PATRIMÔNIO - FLUXO COMPLETO            │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+
+╔═══════════════════════════════════════════════════════════════╗
+║                    1️⃣ CONFIGURAÇÃO INICIAL                     ║
+╚═══════════════════════════════════════════════════════════════╝
+
+    ┌─────────────────┐
+    │  Google Sheets  │
+    │  (sua planilha) │
+    └────────┬────────┘
+             │
+             │ Publicar como CSV
+             │ + Apps Script
+             ▼
+    ┌─────────────────┐
+    │  Apps Script    │
+    │  (Web App)      │
+    └────────┬────────┘
+             │
+             │ Gera URL
+             │
+             ▼
+         [ URL DO APPS SCRIPT ]
+         (guardar para usar no app)
+
+
+╔═══════════════════════════════════════════════════════════════╗
+║                    2️⃣ IMPORTAR PLANILHA                        ║
+╚═══════════════════════════════════════════════════════════════╝
+
+    Google Sheets ──────────┐
+                            │
+         ┌──────────────────┴──────────────────┐
+         │                                     │
+         ▼                                     ▼
+    [ Link CSV ]                       [ Download XLSX ]
+         │                                     │
+         │                                     │
+         ▼                                     ▼
+    ┌─────────────────────────────────────────────┐
+    │           APP NO CELULAR                    │
+    │  • Cole link e clique "Carregar"            │
+    │  OU                                         │
+    │  • Upload do arquivo Excel/CSV              │
+    └──────────────────┬──────────────────────────┘
+                       │
+                       ▼
+              ✅ Planilha carregada
+              (120+ ativos mapeados)
+
+
+╔═══════════════════════════════════════════════════════════════╗
+║              3️⃣ VERIFICAR PATRIMÔNIO (Loop)                    ║
+╚═══════════════════════════════════════════════════════════════╝
+
+    ┌─────────────────┐
+    │  Etiqueta de    │
+    │  Patrimônio     │
+    │  ┌───────────┐  │
+    │  │ PAT-12345 │  │ ◄── QR Code
+    │  └───────────┘  │
+    │     12345       │ ◄── Número impresso
+    └────────┬────────┘
+             │
+             │ 1. Apontar câmera
+             │
+             ▼
+    ┌─────────────────────────────────┐
+    │  📱 APP - CÂMERA ATIVA          │
+    │                                 │
+    │  Detecção automática:           │
+    │  └─ QR Code: "PAT-12345"        │
+    │                                 │
+    │  [Clica: Escanear Agora]        │
+    │  └─ OCR: "12345"                │
+    └────────┬────────────────────────┘
+             │
+             │ 2. Comparar
+             │
+             ▼
+    ┌─────────────────────────────────┐
+    │  COMPARAÇÃO                     │
+    │                                 │
+    │  QR:  12345                     │
+    │  OCR: 12345                     │
+    │  ═══════════                    │
+    │  Resultado: IGUAIS ✅           │
+    └────────┬────────────────────────┘
+             │
+             │ 3. Buscar na planilha
+             │
+             ▼
+    ┌─────────────────────────────────┐
+    │  BUSCA NA PLANILHA              │
+    │                                 │
+    │  Patrimônio: 12345              │
+    │  Encontrado! ✅                 │
+    │  • Nome: Computador Dell        │
+    │  • Local: Sala 101              │
+    │  • Responsável: João Silva      │
+    └────────┬────────────────────────┘
+             │
+             │ 4. Registrar resultado
+             │
+             ▼
+    ┌─────────────────────────────────┐
+    │  RESULTADO FINAL                │
+    │                                 │
+    │  #1 - 12/11/2025 14:30          │
+    │  ✅ STATUS: OK                  │
+    │  📦 Computador Dell | Sala 101  │
+    └─────────────────────────────────┘
+             │
+             │ Repetir para próximo item
+             │
+             └──────┐
+                    │
+         ┌──────────┴──────────┐
+         │  Próxima etiqueta   │
+         └─────────────────────┘
+
+
+╔═══════════════════════════════════════════════════════════════╗
+║             4️⃣ SINCRONIZAR (Após verificar tudo)              ║
+╚═══════════════════════════════════════════════════════════════╝
+
+    ┌─────────────────────────────────┐
+    │  APP NO CELULAR                 │
+    │                                 │
+    │  Resultados: 120 itens          │
+    │  • 110 OK ✅                    │
+    │  • 8 Erros ❌                   │
+    │  • 2 Avisos ⚠️                  │
+    │                                 │
+    │  [Sincronizar com Google]       │
+    └────────┬────────────────────────┘
+             │
+             │ POST para Apps Script
+             │
+             ▼
+    ┌─────────────────────────────────┐
+    │  APPS SCRIPT                    │
+    │  (processa dados)               │
+    └────────┬────────────────────────┘
+             │
+             │ Cria/atualiza aba
+             │
+             ▼
+    ┌─────────────────────────────────┐
+    │  GOOGLE SHEETS                  │
+    │                                 │
+    │  Nova aba: "Verificações"       │
+    │  ┌───────────────────────────┐  │
+    │  │ ID | Data | OCR | QR...  │  │
+    │  │ 1  | ... | 12345 | OK ✅ │  │
+    │  │ 2  | ... | 67890 | OK ✅ │  │
+    │  │ ...                       │  │
+    │  │ 120| ... | 99999 | OK ✅ │  │
+    │  └───────────────────────────┘  │
+    └─────────────────────────────────┘
+             │
+             │ Também pode:
+             │
+             ▼
+    ┌─────────────────────────────────┐
+    │  EXPORTAR EXCEL LOCAL           │
+    │  📥 patrimonio_2025-11-12.xlsx  │
+    └─────────────────────────────────┘
+
+
+╔═══════════════════════════════════════════════════════════════╗
+║                     5️⃣ ANALISAR RESULTADOS                     ║
+╚═══════════════════════════════════════════════════════════════╝
+
+    Google Sheets
+    │
+    ├─ Aba "Verificações"
+    │  └─ Todos os resultados com cores
+    │     • Verde: OK
+    │     • Vermelho: Erros (QR impresso errado!)
+    │     • Amarelo: Avisos
+    │
+    ├─ Menu "Verificador de Patrimônio"
+    │  ├─ Ver Estatísticas
+    │  ├─ Atualizar Formatação
+    │  └─ Sobre
+    │
+    └─ Filtros e análises
+       • Quantos OK?
+       • Quantos erros?
+       • Quais patrimônios com QR errado?
+
+
+═══════════════════════════════════════════════════════════════
+
+                    🎯 FLUXO RESUMIDO
+
+1. Configurar Apps Script (uma vez só)
+2. Importar planilha no app
+3. Escanear 120+ itens
+   • App compara QR vs OCR
+   • Mostra info do ativo
+   • Registra resultado
+4. Sincronizar tudo para Google Sheets
+5. Analisar na planilha
+
+═══════════════════════════════════════════════════════════════
+
+               📊 DADOS QUE CIRCULAM NO FLUXO
+
+┌──────────────────────┬─────────────────────────────────┐
+│ Origem               │ Destino                         │
+├──────────────────────┼─────────────────────────────────┤
+│ Google Sheets        │ → App (planilha de ativos)      │
+│ Etiqueta física      │ → App (QR + OCR)                │
+│ App                  │ → Google Sheets (resultados)    │
+│ App                  │ → Excel local (backup)          │
+└──────────────────────┴─────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════

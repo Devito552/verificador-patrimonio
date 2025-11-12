@@ -1,0 +1,28 @@
+{
+  "name": "verificador-patrimonio",
+  "version": "1.2.0",
+  "description": "App PWA para verificar patrimônio com QR codes, OCR e sincronização Google Sheets",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve -s . -p ${PORT:-8000}",
+    "dev": "npx serve -s . -p 8000"
+  },
+  "keywords": [
+    "patrimonio",
+    "qrcode",
+    "ocr",
+    "inventory",
+    "asset-management",
+    "pwa",
+    "google-sheets"
+  ],
+  "author": "Devito",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SEU-USUARIO/verificador-patrimonio.git"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

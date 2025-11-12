@@ -1,0 +1,1158 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#2c3e50">
+  <link rel="manifest" href="manifest.json">
+  <title>Verificador de Patrimônio</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #ecf0f1;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 12px;
+    }
+    header {
+      background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+      color: white;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.5em;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .stat-card {
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .stat-card .number {
+      font-size: 2em;
+      font-weight: bold;
+      margin: 0;
+    }
+    .stat-card .label {
+      font-size: 0.85em;
+      color: #7f8c8d;
+      margin-top: 4px;
+    }
+    .stat-card.ok .number { color: #27ae60; }
+    .stat-card.err .number { color: #e74c3c; }
+    .stat-card.warn .number { color: #f39c12; }
+    
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 12px 0;
+    }
+    button {
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #3498db;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      flex: 1;
+      min-width: 120px;
+    }
+    button:hover { background: #2980b9; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+    button:disabled { background: #95a5a6; cursor: not-allowed; transform: none; }
+    button.success { background: #27ae60; }
+    button.success:hover { background: #229954; }
+    button.danger { background: #e74c3c; }
+    button.danger:hover { background: #c0392b; }
+    button.warning { background: #f39c12; }
+    button.warning:hover { background: #d68910; }
+    
+    #reader {
+      max-width: 100%;
+      border: 3px solid #3498db;
+      border-radius: 12px;
+      overflow: hidden;
+      background: black;
+      margin: 12px 0;
+    }
+    .camera-controls {
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      margin: 12px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .camera-controls label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0;
+      cursor: pointer;
+    }
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+    
+    .results-section {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      margin: 12px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .results-section h3 {
+      margin-top: 0;
+      color: #2c3e50;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 8px;
+    }
+    
+    .result-item {
+      background: #f8f9fa;
+      border-left: 4px solid #3498db;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 4px;
+      animation: slideIn 0.3s ease-out;
+    }
+    .result-item.ok { border-left-color: #27ae60; }
+    .result-item.err { border-left-color: #e74c3c; }
+    .result-item.warn { border-left-color: #f39c12; }
+    
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .result-id {
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+    .result-status {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85em;
+      font-weight: bold;
+    }
+    .result-status.ok { background: #27ae60; color: white; }
+    .result-status.err { background: #e74c3c; color: white; }
+    .result-status.warn { background: #f39c12; color: white; }
+    
+    .result-details {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px;
+      font-size: 0.9em;
+    }
+    .result-details dt {
+      font-weight: 600;
+      color: #7f8c8d;
+    }
+    .result-details dd {
+      margin: 0;
+      color: #2c3e50;
+    }
+    
+    .alert {
+      padding: 12px;
+      border-radius: 8px;
+      margin: 12px 0;
+      background: #fff3cd;
+      border-left: 4px solid #f39c12;
+      color: #856404;
+    }
+    
+    .export-section {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      margin: 12px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .export-section input {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      margin: 8px 0;
+      font-size: 1em;
+    }
+    
+    .import-section {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      margin: 12px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .import-section h3 {
+      margin-top: 0;
+      color: #2c3e50;
+      border-bottom: 2px solid #9b59b6;
+      padding-bottom: 8px;
+    }
+    .file-input-wrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+      width: 100%;
+    }
+    .file-input-wrapper input[type=file] {
+      position: absolute;
+      left: -9999px;
+    }
+    .file-input-label {
+      display: block;
+      padding: 12px;
+      background: #9b59b6;
+      color: white;
+      text-align: center;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    .file-input-label:hover {
+      background: #8e44ad;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .sheet-info {
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 6px;
+      margin: 12px 0;
+      font-size: 0.9em;
+    }
+    .sheet-info.loaded {
+      background: #d4edda;
+      border-left: 4px solid #28a745;
+    }
+    .sync-status {
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin: 8px 0;
+      font-size: 0.9em;
+      display: none;
+    }
+    .sync-status.success {
+      background: #d4edda;
+      color: #155724;
+      border-left: 4px solid #28a745;
+      display: block;
+    }
+    .sync-status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border-left: 4px solid #dc3545;
+      display: block;
+    }
+    
+    @media (max-width: 600px) {
+      .btn-group { flex-direction: column; }
+      button { min-width: 100%; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+  <!-- Dependências -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+  <script src="https://unpkg.com/tesseract.js@5.0.4/dist/tesseract.min.js" defer></script>
+  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+  <script defer>
+    // Garantir que as bibliotecas estejam carregadas antes de iniciar
+    function waitForLibraries() {
+      return new Promise((resolve) => {
+        const checkLibraries = setInterval(() => {
+          if (typeof Html5Qrcode !== 'undefined' && 
+              typeof Tesseract !== 'undefined' && 
+              typeof XLSX !== 'undefined') {
+            clearInterval(checkLibraries);
+            resolve();
+          }
+        }, 100);
+      });
+    }
+  </script>
+</head>
+<body>
+  <header>
+    <h1>📋 Verificador de Patrimônio</h1>
+    <p style="margin: 4px 0 0 0; font-size: 0.9em; opacity: 0.9;">Escaneie etiquetas com a câmera</p>
+  </header>
+
+  <div class="container">
+    <!-- Estatísticas -->
+    <div class="stats">
+      <div class="stat-card">
+        <p class="number" id="totalCount">0</p>
+        <p class="label">Total</p>
+      </div>
+      <div class="stat-card ok">
+        <p class="number" id="okCount">0</p>
+        <p class="label">✓ OK</p>
+      </div>
+      <div class="stat-card err">
+        <p class="number" id="errCount">0</p>
+        <p class="label">✗ Erro</p>
+      </div>
+      <div class="stat-card warn">
+        <p class="number" id="warnCount">0</p>
+        <p class="label">⚠ Aviso</p>
+      </div>
+    </div>
+
+    <!-- Controles principais -->
+    <div class="btn-group">
+      <button id="startBtn">📷 Iniciar Câmera</button>
+      <button id="stopBtn" class="danger" disabled>⏹ Parar</button>
+      <button id="scanOnceBtn" class="warning" disabled>📸 Escanear Agora</button>
+    </div>
+
+    <!-- Câmera -->
+    <div id="reader" style="width:100%;max-width:640px;height:auto;display:none;margin:0 auto;"></div>
+    <canvas id="videoCanvas" style="display:none"></canvas>
+
+    <!-- Controles da câmera -->
+    <div class="camera-controls" id="cameraControls" style="display:none">
+      <label>
+        <input type="checkbox" id="autoQR" checked />
+        <strong>Modo Automático QR:</strong> Detecta QR codes continuamente
+      </label>
+      <label>
+        <input type="checkbox" id="autoOCR" />
+        <strong>OCR Automático:</strong> Extrai número automaticamente após QR
+      </label>
+      <label>
+        <input type="checkbox" id="soundAlert" checked />
+        <strong>Alertas Sonoros:</strong> Bipe ao detectar código
+      </label>
+    </div>
+
+    <!-- Seção de Importação da Planilha -->
+    <div class="import-section">
+      <h3>📥 Planilha de Ativos</h3>
+      <div class="sheet-info" id="sheetInfo">
+        <strong>Status:</strong> Nenhuma planilha carregada<br>
+        <small>Importe sua planilha do Google Sheets ou carregue um arquivo local</small>
+      </div>
+      
+      <div class="btn-group">
+        <div class="file-input-wrapper">
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
+          <label for="fileInput" class="file-input-label">📁 Carregar Arquivo (Excel/CSV)</label>
+        </div>
+      </div>
+      
+      <div style="text-align: center; margin: 12px 0; color: #7f8c8d; font-weight: 600;">— OU —</div>
+      
+      <input type="text" id="googleSheetUrl" placeholder="Cole o link do Google Sheets aqui" 
+             style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; margin: 8px 0; font-size: 1em;">
+      <button id="loadGoogleSheetBtn" style="background: #9b59b6; width: 100%;">🔗 Carregar do Google Sheets</button>
+      
+      <div style="margin-top: 12px;">
+        <label style="font-size: 0.9em; color: #7f8c8d;">
+          <strong>URL do Apps Script (para sincronização):</strong>
+        </label>
+        <input type="text" id="appsScriptUrl" placeholder="https://script.google.com/macros/s/.../exec" 
+               style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; margin: 8px 0; font-size: 0.9em;">
+        <button id="syncToSheetBtn" class="success" style="width: 100%;" disabled>☁️ Sincronizar com Google Sheets</button>
+      </div>
+      
+      <div id="syncStatus" class="sync-status"></div>
+    </div>
+
+    <div class="alert">
+      <strong>💡 Como usar:</strong><br>
+      1️⃣ Clique em "Iniciar Câmera"<br>
+      2️⃣ Aponte para a etiqueta de patrimônio<br>
+      3️⃣ O app lerá automaticamente o QR code<br>
+      4️⃣ Clique em "Escanear Agora" para extrair o número impresso (OCR)<br>
+      5️⃣ O sistema compara e registra se está OK ou com erro<br>
+      6️⃣ Exporte tudo para Excel quando terminar
+    </div>
+
+    <!-- Seção de exportação -->
+    <div class="export-section">
+      <h3>📊 Exportar Dados</h3>
+      <input id="sheetName" type="text" placeholder="Nome da planilha" value="verificacao_patrimonio" />
+      <div class="btn-group">
+        <button id="exportBtn" class="success">⬇ Baixar Excel</button>
+        <button id="clearBtn" class="danger">🗑 Limpar Tudo</button>
+      </div>
+    </div>
+
+    <!-- Resultados -->
+    <div class="results-section">
+      <h3>📝 Últimas Verificações</h3>
+      <div id="resultsList"></div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // ESTADO DA APLICAÇÃO
+    // ============================================
+    const results = [];
+    let html5QrScanner = null;
+    let qrContinuous = false;
+    let currentCameraId = null;
+    let recordId = 0;
+    let lastQRCode = null;
+    let lastQRTime = 0;
+    
+    // Planilha de ativos importada
+    let assetDatabase = [];
+    let assetsByPatrimonio = new Map();
+    let appsScriptDeployUrl = '';
+
+    // ============================================
+    // ELEMENTOS DO DOM
+    // ============================================
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const scanOnceBtn = document.getElementById('scanOnceBtn');
+    const autoQR = document.getElementById('autoQR');
+    const autoOCR = document.getElementById('autoOCR');
+    const soundAlert = document.getElementById('soundAlert');
+    const resultsList = document.getElementById('resultsList');
+    const reader = document.getElementById('reader');
+    const cameraControls = document.getElementById('cameraControls');
+    
+    // Elementos de importação e sincronização
+    const fileInput = document.getElementById('fileInput');
+    const googleSheetUrl = document.getElementById('googleSheetUrl');
+    const loadGoogleSheetBtn = document.getElementById('loadGoogleSheetBtn');
+    const appsScriptUrl = document.getElementById('appsScriptUrl');
+    const syncToSheetBtn = document.getElementById('syncToSheetBtn');
+    const sheetInfo = document.getElementById('sheetInfo');
+    const syncStatus = document.getElementById('syncStatus');
+
+    // ============================================
+    // UTILITÁRIOS
+    // ============================================
+    function onlyDigits(str) {
+      if (!str) return '';
+      const m = str.match(/\d+/g);
+      return m ? m.join('') : '';
+    }
+
+    function playBeep(type = 'success') {
+      if (!soundAlert.checked) return;
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = type === 'success' ? 800 : type === 'error' ? 400 : 600;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+    }
+
+    function updateStats() {
+      const total = results.length;
+      const ok = results.filter(r => r.status === 'OK').length;
+      const err = results.filter(r => r.status === 'Erro').length;
+      const warn = results.filter(r => r.status === 'Aviso').length;
+      
+      document.getElementById('totalCount').textContent = total;
+      document.getElementById('okCount').textContent = ok;
+      document.getElementById('errCount').textContent = err;
+      document.getElementById('warnCount').textContent = warn;
+    }
+
+    // ============================================
+    // IMPORTAÇÃO E SINCRONIZAÇÃO DA PLANILHA
+    // ============================================
+    
+    function processSheetData(data, source = 'arquivo') {
+      assetDatabase = data;
+      assetsByPatrimonio.clear();
+      
+      // Mapear por número de patrimônio (procura em todas as colunas possíveis)
+      data.forEach((row, index) => {
+        const rowValues = Object.values(row);
+        rowValues.forEach(value => {
+          if (value) {
+            const digits = onlyDigits(String(value));
+            if (digits && digits.length >= 4) {
+              assetsByPatrimonio.set(digits, { ...row, _rowIndex: index });
+            }
+          }
+        });
+      });
+      
+      sheetInfo.className = 'sheet-info loaded';
+      sheetInfo.innerHTML = `
+        <strong>✅ Planilha carregada com sucesso!</strong><br>
+        <small>Fonte: ${source} | ${assetDatabase.length} linhas | ${assetsByPatrimonio.size} patrimônios mapeados</small>
+      `;
+      
+      // Habilitar botão de sync se tiver URL do Apps Script
+      if (appsScriptUrl.value.trim()) {
+        syncToSheetBtn.disabled = false;
+      }
+      
+      // Salvar no localStorage
+      localStorage.setItem('patrimonio_assetDatabase', JSON.stringify(assetDatabase));
+      localStorage.setItem('patrimonio_appsScriptUrl', appsScriptUrl.value.trim());
+      
+      playBeep('success');
+    }
+    
+    async function handleFileImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      try {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+          
+          processSheetData(jsonData, `arquivo: ${file.name}`);
+        };
+        reader.readAsArrayBuffer(file);
+      } catch (err) {
+        console.error(err);
+        alert('❌ Erro ao ler arquivo: ' + err.message);
+      }
+    }
+    
+    async function loadFromGoogleSheets() {
+      const url = googleSheetUrl.value.trim();
+      if (!url) {
+        alert('⚠️ Cole o link do Google Sheets primeiro!');
+        return;
+      }
+      
+      loadGoogleSheetBtn.disabled = true;
+      loadGoogleSheetBtn.textContent = '⏳ Carregando...';
+      
+      try {
+        // Extrair ID da planilha
+        const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (!match) {
+          throw new Error('Link inválido. Use o formato: https://docs.google.com/spreadsheets/d/ID/edit');
+        }
+        
+        const sheetId = match[1];
+        
+        // Tentar carregar como CSV público
+        const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+        
+        const response = await fetch(csvUrl);
+        if (!response.ok) {
+          throw new Error('Não foi possível acessar a planilha. Certifique-se de que ela está publicada como CSV (Arquivo → Compartilhar → Publicar na Web → CSV)');
+        }
+        
+        const csvText = await response.text();
+        const workbook = XLSX.read(csvText, { type: 'string' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+        
+        processSheetData(jsonData, 'Google Sheets');
+        
+        // Salvar URL para futuras cargas
+        localStorage.setItem('patrimonio_googleSheetUrl', url);
+        
+      } catch (err) {
+        console.error(err);
+        alert('❌ ' + err.message);
+      } finally {
+        loadGoogleSheetBtn.disabled = false;
+        loadGoogleSheetBtn.textContent = '🔗 Carregar do Google Sheets';
+      }
+    }
+    
+    async function syncToGoogleSheets() {
+      const scriptUrl = appsScriptUrl.value.trim();
+      if (!scriptUrl) {
+        alert('⚠️ Configure a URL do Apps Script primeiro!');
+        return;
+      }
+      
+      if (results.length === 0) {
+        alert('⚠️ Nenhum dado para sincronizar!');
+        return;
+      }
+      
+      syncToSheetBtn.disabled = true;
+      syncToSheetBtn.textContent = '⏳ Sincronizando...';
+      syncStatus.className = 'sync-status';
+      syncStatus.textContent = '';
+      
+      try {
+        const payload = {
+          action: 'updateResults',
+          results: results.map(r => ({
+            id: r.id,
+            timestamp: r.timestamp,
+            ocr_number: r.ocr_number || '',
+            qr_raw: r.qr_raw || '',
+            qr_digits: r.qr_digits || '',
+            compare: r.compare,
+            status: r.status,
+            asset_info: r.asset_info || ''
+          }))
+        };
+        
+        const response = await fetch(scriptUrl, {
+          method: 'POST',
+          mode: 'no-cors', // Apps Script requer no-cors
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        // no-cors não retorna resposta legível, assumimos sucesso
+        syncStatus.className = 'sync-status success';
+        syncStatus.textContent = `✅ ${results.length} registros enviados para o Google Sheets! (Verifique a planilha)`;
+        playBeep('success');
+        
+      } catch (err) {
+        console.error(err);
+        syncStatus.className = 'sync-status error';
+        syncStatus.textContent = '❌ Erro ao sincronizar: ' + err.message;
+        playBeep('error');
+      } finally {
+        syncToSheetBtn.disabled = false;
+        syncToSheetBtn.textContent = '☁️ Sincronizar com Google Sheets';
+      }
+    }
+    
+    function findAssetByPatrimonio(numero) {
+      if (!numero) return null;
+      const digits = onlyDigits(numero);
+      return assetsByPatrimonio.get(digits) || null;
+    }
+
+    // ============================================
+    // GERENCIAMENTO DE RESULTADOS
+    // ============================================
+    function addResult(data) {
+      recordId += 1;
+      const row = {
+        id: recordId,
+        timestamp: new Date().toISOString(),
+        ...data
+      };
+      results.push(row);
+      renderResult(row);
+      updateStats();
+      
+      // Salvar no localStorage
+      localStorage.setItem('patrimonio_results', JSON.stringify(results));
+      localStorage.setItem('patrimonio_recordId', recordId);
+    }
+
+    function renderResult(r) {
+      const div = document.createElement('div');
+      div.className = `result-item ${r.status === 'OK' ? 'ok' : r.status === 'Erro' ? 'err' : 'warn'}`;
+      
+      const statusText = r.status === 'OK' ? '✓ OK' : r.status === 'Erro' ? '✗ ERRO' : '⚠ AVISO';
+      
+      let assetInfoHtml = '';
+      if (r.asset_info) {
+        assetInfoHtml = `
+          <dt>📦 Info do Ativo:</dt>
+          <dd style="background: #e8f4f8; padding: 6px; border-radius: 4px; margin-top: 4px;">
+            <strong>${r.asset_info}</strong>
+          </dd>
+        `;
+      }
+      
+      div.innerHTML = `
+        <div class="result-header">
+          <span class="result-id">#${r.id}</span>
+          <span class="result-status ${r.status === 'OK' ? 'ok' : r.status === 'Erro' ? 'err' : 'warn'}">${statusText}</span>
+        </div>
+        <dl class="result-details">
+          <dt>📱 Número OCR:</dt>
+          <dd>${r.ocr_number || '(não detectado)'}</dd>
+          
+          <dt>🔳 QR Code:</dt>
+          <dd>${r.qr_raw || '(não detectado)'}</dd>
+          
+          <dt>🔢 QR Números:</dt>
+          <dd>${r.qr_digits || '(sem números)'}</dd>
+          
+          <dt>⚖️ Comparação:</dt>
+          <dd><strong>${r.compare}</strong></dd>
+          
+          ${assetInfoHtml}
+          
+          <dt>🕐 Data/Hora:</dt>
+          <dd>${new Date(r.timestamp).toLocaleString('pt-BR')}</dd>
+        </dl>
+      `;
+      
+      resultsList.insertBefore(div, resultsList.firstChild);
+      
+      // Limitar a exibição a 20 itens
+      while (resultsList.children.length > 20) {
+        resultsList.removeChild(resultsList.lastChild);
+      }
+    }
+
+    function loadSavedResults() {
+      const saved = localStorage.getItem('patrimonio_results');
+      const savedId = localStorage.getItem('patrimonio_recordId');
+      
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          results.push(...parsed);
+          recordId = parseInt(savedId) || results.length;
+          
+          // Renderizar os últimos 20
+          const toRender = results.slice(-20).reverse();
+          toRender.forEach(r => renderResult(r));
+          updateStats();
+        } catch (e) {
+          console.error('Erro ao carregar resultados salvos', e);
+        }
+      }
+    }
+
+    // ============================================
+    // CÂMERA E SCANNER
+    // ============================================
+    async function startCamera() {
+      if (html5QrScanner) return;
+      
+      const elementId = "reader";
+      html5QrScanner = new Html5Qrcode(elementId);
+      
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length) {
+          // Preferir câmera traseira
+          const back = devices.find(d => /back|rear|environment/i.test(d.label)) || devices[0];
+          currentCameraId = back.id;
+          
+          await html5QrScanner.start(
+            currentCameraId,
+            {
+              fps: 10,
+              qrbox: { width: 250, height: 250 },
+              aspectRatio: 1.0
+            },
+            qrSuccessCallback,
+            qrErrorCallback
+          );
+          
+          reader.style.display = 'block';
+          cameraControls.style.display = 'block';
+          startBtn.disabled = true;
+          stopBtn.disabled = false;
+          scanOnceBtn.disabled = false;
+          qrContinuous = autoQR.checked;
+        } else {
+          alert('❌ Nenhuma câmera encontrada no dispositivo');
+        }
+      } catch (e) {
+        console.error(e);
+        alert('❌ Erro ao iniciar câmera: ' + e.message);
+      }
+    }
+
+    async function stopCamera() {
+      if (!html5QrScanner) return;
+      
+      try {
+        await html5QrScanner.stop();
+      } catch (e) {
+        console.warn(e);
+      }
+      
+      html5QrScanner.clear();
+      html5QrScanner = null;
+      reader.style.display = 'none';
+      cameraControls.style.display = 'none';
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      scanOnceBtn.disabled = true;
+      qrContinuous = false;
+    }
+
+    function qrSuccessCallback(decodedText, decodedResult) {
+      const now = Date.now();
+      
+      // Evitar duplicatas (mesmo QR em menos de 3 segundos)
+      if (lastQRCode === decodedText && (now - lastQRTime) < 3000) {
+        return;
+      }
+      
+      lastQRCode = decodedText;
+      lastQRTime = now;
+      
+      console.log('✓ QR Code detectado:', decodedText);
+      playBeep('success');
+      
+      if (autoQR.checked) {
+        if (autoOCR.checked) {
+          // Fazer OCR automaticamente
+          setTimeout(() => scanOnce(decodedText), 500);
+        } else {
+          // Apenas registrar o QR
+          handlePairing(null, decodedText);
+        }
+      }
+    }
+
+    function qrErrorCallback(err) {
+      // Ignorar erros normais de scan
+    }
+
+    // ============================================
+    // OCR (TESSERACT)
+    // ============================================
+    async function scanOnce(qrFromAuto = null) {
+      if (!html5QrScanner) {
+        alert('⚠️ Ative a câmera antes de escanear');
+        return;
+      }
+      
+      scanOnceBtn.disabled = true;
+      scanOnceBtn.textContent = '⏳ Processando...';
+      
+      try {
+        // Procurar elemento de vídeo interno
+        const container = document.getElementById('reader');
+        const video = container.querySelector('video');
+        
+        if (!video) {
+          alert('❌ Vídeo não encontrado — tente reiniciar a câmera');
+          return;
+        }
+
+        // Desenhar frame no canvas
+        const canvas = document.getElementById('videoCanvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Recortar região central para melhorar OCR
+        const w = canvas.width, h = canvas.height;
+        const size = Math.min(w, h) * 0.7;
+        const sx = (w - size) / 2, sy = (h - size) / 2;
+
+        const cropped = document.createElement('canvas');
+        cropped.width = size;
+        cropped.height = size;
+        const cctx = cropped.getContext('2d');
+        cctx.drawImage(canvas, sx, sy, size, size, 0, 0, size, size);
+
+        // Tentar extrair QR da imagem se não veio do auto
+        let qrRaw = qrFromAuto;
+        if (!qrRaw) {
+          try {
+            const dataUrl = cropped.toDataURL('image/png');
+            const qrResult = await Html5Qrcode.scanFile(dataUrl, true);
+            if (qrResult) qrRaw = qrResult;
+          } catch (e) {
+            console.log('QR não encontrado na imagem estática');
+          }
+        }
+
+        // OCR com Tesseract
+        const blob = await new Promise(res => cropped.toBlob(res, 'image/png'));
+        const { data: { text } } = await Tesseract.recognize(blob, 'por', {
+          logger: m => console.log(m.status, m.progress)
+        });
+
+        const ocrText = text.trim();
+        const ocrDigits = onlyDigits(ocrText);
+
+        await handlePairing(ocrDigits || ocrText, qrRaw);
+        
+      } catch (err) {
+        console.error(err);
+        alert('❌ Erro ao escanear: ' + err.message);
+        playBeep('error');
+      } finally {
+        scanOnceBtn.disabled = false;
+        scanOnceBtn.textContent = '📸 Escanear Agora';
+      }
+    }
+
+    // ============================================
+    // COMPARAÇÃO E REGISTRO
+    // ============================================
+    async function handlePairing(ocrNumber, qrRaw) {
+      const ocrDigits = onlyDigits(ocrNumber);
+      const qrDigits = onlyDigits(qrRaw);
+
+      let status = 'Erro';
+      let compare = '—';
+      let assetInfo = '';
+
+      // Buscar ativo na planilha importada
+      const patrimonio = ocrDigits || qrDigits;
+      if (patrimonio && assetDatabase.length > 0) {
+        const asset = findAssetByPatrimonio(patrimonio);
+        if (asset) {
+          // Extrair informações relevantes do ativo
+          const assetDetails = [];
+          for (const [key, value] of Object.entries(asset)) {
+            if (key !== '_rowIndex' && value && !key.match(/^\d+$/)) {
+              assetDetails.push(`${key}: ${value}`);
+            }
+          }
+          assetInfo = assetDetails.slice(0, 3).join(' | ') || 'Encontrado na planilha';
+        } else {
+          assetInfo = '⚠️ NÃO encontrado na planilha';
+        }
+      }
+
+      if (ocrDigits && qrDigits) {
+        if (ocrDigits === qrDigits) {
+          compare = '✓ Números Iguais (QR OK)';
+          status = 'OK';
+          playBeep('success');
+        } else {
+          compare = `✗ Divergentes (OCR: ${ocrDigits} ≠ QR: ${qrDigits})`;
+          status = 'Erro';
+          playBeep('error');
+        }
+      } else if (qrDigits && !ocrDigits) {
+        compare = '⚠ Somente QR detectado (OCR falhou)';
+        status = 'Aviso';
+        playBeep('warning');
+      } else if (ocrDigits && !qrDigits) {
+        compare = '⚠ Somente OCR detectado (QR não lido)';
+        status = 'Aviso';
+        playBeep('warning');
+      } else {
+        compare = '✗ Nenhum código detectado';
+        status = 'Erro';
+        playBeep('error');
+      }
+
+      addResult({
+        ocr_number: ocrNumber,
+        qr_raw: qrRaw,
+        qr_digits: qrDigits,
+        compare,
+        status,
+        asset_info: assetInfo
+      });
+    }
+
+    // ============================================
+    // EXPORTAÇÃO EXCEL
+    // ============================================
+    function exportToExcel() {
+      if (results.length === 0) {
+        alert('⚠️ Nada para exportar. Escaneie alguns itens primeiro.');
+        return;
+      }
+
+      const ws_data = [
+        ['ID', 'Data/Hora', 'Número OCR', 'QR Code Completo', 'QR Números', 'Comparação', 'Status', 'Info do Ativo']
+      ].concat(
+        results.map(r => [
+          r.id,
+          new Date(r.timestamp).toLocaleString('pt-BR'),
+          r.ocr_number || '',
+          r.qr_raw || '',
+          r.qr_digits || '',
+          r.compare,
+          r.status,
+          r.asset_info || ''
+        ])
+      );
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(ws_data);
+      
+      // Auto-dimensionar colunas
+      ws['!cols'] = [
+        { wch: 5 },
+        { wch: 20 },
+        { wch: 15 },
+        { wch: 30 },
+        { wch: 15 },
+        { wch: 35 },
+        { wch: 10 },
+        { wch: 40 }
+      ];
+
+      const sheetName = document.getElementById('sheetName').value || 'verificacao_patrimonio';
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `patrimonio_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      playBeep('success');
+      alert(`✓ Excel exportado com ${results.length} registros!`);
+    }
+
+    function clearAll() {
+      if (!confirm('⚠️ Deseja realmente limpar TODOS os dados? Esta ação não pode ser desfeita.')) {
+        return;
+      }
+      
+      results.length = 0;
+      recordId = 0;
+      resultsList.innerHTML = '';
+      updateStats();
+      localStorage.removeItem('patrimonio_results');
+      localStorage.removeItem('patrimonio_recordId');
+      
+      alert('✓ Dados limpos com sucesso!');
+    }
+
+    // ============================================
+    // INICIALIZAÇÃO
+    // ============================================
+    function initApp() {
+      // ============================================
+      // EVENT LISTENERS
+      // ============================================
+      startBtn.addEventListener('click', startCamera);
+      stopBtn.addEventListener('click', stopCamera);
+      scanOnceBtn.addEventListener('click', () => scanOnce());
+      exportBtn.addEventListener('click', exportToExcel);
+      clearBtn.addEventListener('click', clearAll);
+
+      autoQR.addEventListener('change', () => {
+        qrContinuous = autoQR.checked;
+      });
+      
+      // Importação e sincronização
+      fileInput.addEventListener('change', handleFileImport);
+      loadGoogleSheetBtn.addEventListener('click', loadFromGoogleSheets);
+      syncToSheetBtn.addEventListener('click', syncToGoogleSheets);
+      
+      appsScriptUrl.addEventListener('input', () => {
+        if (appsScriptUrl.value.trim() && assetDatabase.length > 0) {
+          syncToSheetBtn.disabled = false;
+        } else {
+          syncToSheetBtn.disabled = true;
+        }
+      });
+
+      // Prevenir zoom em iOS
+      document.addEventListener('gesturestart', e => e.preventDefault());
+
+      // Parar câmera ao fechar
+      window.addEventListener('beforeunload', () => {
+        if (html5QrScanner) {
+          html5QrScanner.stop().catch(() => {});
+        }
+      });
+      
+      // ============================================
+      // CARREGAR DADOS SALVOS
+      // ============================================
+      loadSavedResults();
+      
+      // Carregar planilha salva
+      const savedDatabase = localStorage.getItem('patrimonio_assetDatabase');
+      const savedGoogleUrl = localStorage.getItem('patrimonio_googleSheetUrl');
+      const savedAppsScriptUrl = localStorage.getItem('patrimonio_appsScriptUrl');
+      
+      if (savedDatabase) {
+        try {
+          assetDatabase = JSON.parse(savedDatabase);
+          assetDatabase.forEach((row, index) => {
+            const rowValues = Object.values(row);
+            rowValues.forEach(value => {
+              if (value) {
+                const digits = onlyDigits(String(value));
+                if (digits && digits.length >= 4) {
+                  assetsByPatrimonio.set(digits, { ...row, _rowIndex: index });
+                }
+              }
+            });
+          });
+          
+          sheetInfo.className = 'sheet-info loaded';
+          sheetInfo.innerHTML = `
+            <strong>✅ Planilha carregada (salva anteriormente)</strong><br>
+            <small>${assetDatabase.length} linhas | ${assetsByPatrimonio.size} patrimônios</small>
+          `;
+        } catch (e) {
+          console.error('Erro ao carregar planilha salva', e);
+        }
+      }
+      
+      if (savedGoogleUrl) {
+        googleSheetUrl.value = savedGoogleUrl;
+      }
+      
+      if (savedAppsScriptUrl) {
+        appsScriptUrl.value = savedAppsScriptUrl;
+        if (assetDatabase.length > 0) {
+          syncToSheetBtn.disabled = false;
+        }
+      }
+      
+      console.log('✓ App de Verificação de Patrimônio carregado');
+      
+      // Registrar Service Worker para PWA
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('✓ Service Worker registrado', reg))
+          .catch(err => console.log('✗ Erro ao registrar SW', err));
+      }
+    }
+    
+    // Aguardar bibliotecas carregarem antes de inicializar
+    window.addEventListener('DOMContentLoaded', async () => {
+      console.log('⏳ Aguardando bibliotecas externas...');
+      await waitForLibraries();
+      console.log('✓ Bibliotecas carregadas');
+      initApp();
+    });
+  </script>
+</body>
+</html>

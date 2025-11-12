@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Gerador de Ícones PWA</title>
+</head>
+<body>
+  <h2>Gerador de Ícones</h2>
+  <p>Abra esta página e os ícones serão gerados automaticamente</p>
+  <canvas id="canvas192" width="192" height="192"></canvas>
+  <canvas id="canvas512" width="512" height="512"></canvas>
+  <br>
+  <button onclick="downloadIcons()">Baixar Ícones</button>
+
+  <script>
+    function createIcon(canvas, size) {
+      const ctx = canvas.getContext('2d');
+      
+      // Fundo gradiente
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#2c3e50');
+      gradient.addColorStop(1, '#3498db');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+      
+      // Borda arredondada
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size, size * 0.1);
+      ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      
+      // Emoji / Ícone
+      ctx.font = `bold ${size * 0.5}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'white';
+      ctx.fillText('📋', size / 2, size / 2);
+    }
+
+    createIcon(document.getElementById('canvas192'), 192);
+    createIcon(document.getElementById('canvas512'), 512);
+
+    function downloadIcons() {
+      const canvas192 = document.getElementById('canvas192');
+      const canvas512 = document.getElementById('canvas512');
+      
+      canvas192.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'icon-192.png';
+        a.click();
+      });
+      
+      setTimeout(() => {
+        canvas512.toBlob(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'icon-512.png';
+          a.click();
+        });
+      }, 500);
+    }
+
+    // Auto download
+    setTimeout(() => downloadIcons(), 1000);
+  </script>
+</body>
+</html>
