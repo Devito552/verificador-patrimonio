@@ -23,7 +23,7 @@
  */
 
 // ============ CONFIGURAÇÃO - EDITE AQUI ============
-const SHEET_NAME = 'Planilha1'; // Nome da aba com os ativos
+const SHEET_NAME = 'Verificações'; // Nome da aba com os ativos
 const COL_ATIVO = 'Ativo'; // Nome da coluna com o número do patrimônio
 const COL_SITUACAO = 'SITUAÇÃO ATUAL'; // Nome da coluna SITUAÇÃO ATUAL
 const COL_PLAQUETA = 'PLAQUETA QR-CODE'; // Nome da coluna PLAQUETA QR-CODE
@@ -34,7 +34,28 @@ const COL_PLAQUETA = 'PLAQUETA QR-CODE'; // Nome da coluna PLAQUETA QR-CODE
  */
 function doPost(e) {
   try {
-    const data = JSON.parse(e.postData.contents);
+    let data;
+    
+    // Tentar parsear de diferentes formatos (JSON ou FormData)
+    if (e.postData && e.postData.contents) {
+      try {
+        // Tentar JSON direto
+        data = JSON.parse(e.postData.contents);
+      } catch (jsonErr) {
+        // Tentar extrair de FormData
+        if (e.parameter && e.parameter.payload) {
+          data = JSON.parse(e.parameter.payload);
+        } else {
+          throw new Error('Formato de dados não reconhecido');
+        }
+      }
+    } else if (e.parameter && e.parameter.payload) {
+      data = JSON.parse(e.parameter.payload);
+    } else {
+      throw new Error('Nenhum dado recebido');
+    }
+    
+    Logger.log('Dados recebidos: ' + JSON.stringify(data));
     
     if (data.action === 'updateAsset') {
       return handleUpdateAsset(data);
@@ -45,7 +66,7 @@ function doPost(e) {
     ).setMimeType(ContentService.MimeType.JSON);
     
   } catch (error) {
-    Logger.log('Erro: ' + error.toString());
+    Logger.log('Erro no doPost: ' + error.toString());
     return ContentService.createTextOutput(
       JSON.stringify({ success: false, error: error.toString() })
     ).setMimeType(ContentService.MimeType.JSON);
