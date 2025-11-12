@@ -422,10 +422,7 @@
         </label>
         <input type="text" id="appsScriptUrl" placeholder="https://script.google.com/macros/s/.../exec" 
                style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; margin: 8px 0; font-size: 0.9em;">
-        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-          <button id="testAppsScriptBtn" class="secondary" style="flex: 1;">🧪 Testar Conexão</button>
-          <button id="syncToSheetBtn" class="success" style="flex: 2;" disabled>☁️ Sincronizar com Google Sheets</button>
-        </div>
+        <button id="syncToSheetBtn" class="success" style="width: 100%;" disabled>☁️ Sincronizar com Google Sheets</button>
       </div>
       
       <div id="syncStatus" class="sync-status"></div>
@@ -500,7 +497,6 @@
     const loadGoogleSheetBtn = document.getElementById('loadGoogleSheetBtn');
     const appsScriptUrl = document.getElementById('appsScriptUrl');
     const syncToSheetBtn = document.getElementById('syncToSheetBtn');
-    const testAppsScriptBtn = document.getElementById('testAppsScriptBtn');
     const sheetInfo = document.getElementById('sheetInfo');
     const syncStatus = document.getElementById('syncStatus');
 
@@ -685,7 +681,6 @@
       
       try {
         console.log('🧪 Testando conexão com:', scriptUrl);
-        
         const response = await fetch(scriptUrl, {
           method: 'GET',
           redirect: 'follow'
@@ -741,9 +736,23 @@
       syncStatus.className = 'sync-status';
       syncStatus.textContent = '';
       
+      console.log('🚀 ═══════════════════════════════════════════');
+      console.log('🚀 INICIANDO SINCRONIZAÇÃO COM GOOGLE SHEETS');
+      console.log('🚀 ═══════════════════════════════════════════');
+      console.log('📊 Total de itens:', results.length);
+      console.log('🔗 URL do Apps Script:', scriptUrl);
+      console.log('📋 Dados a sincronizar:', results.map(r => ({
+        id: r.id,
+        ativo: r.ocr_number || r.qr_digits,
+        situacao: r.situacao_atual,
+        plaqueta: r.plaqueta_qr_code
+      })));
+      console.log('🚀 ═══════════════════════════════════════════\n');
+      
       try {
         let sucessos = 0;
         let erros = 0;
+        let detalhesErros = [];
         
         // Enviar cada ativo individualmente
         for (let i = 0; i < results.length; i++) {
@@ -751,7 +760,9 @@
           const ativo = r.ocr_number || r.qr_digits;
           
           if (!ativo) {
+            console.error(`❌ Item #${r.id} sem número de ativo!`);
             erros++;
+            detalhesErros.push(`Item #${r.id}: Sem número`);
             continue;
           }
           
@@ -765,7 +776,7 @@
               plaqueta_qr_code: r.plaqueta_qr_code || ''
             };
             
-            console.log('📤 Enviando:', payload);
+            console.log(`\n📤 [${i + 1}/${results.length}] Enviando ativo ${ativo}:`, payload);
             
             // Usar POST via form (bypass CORS)
             const formData = new FormData();
@@ -783,19 +794,25 @@
             let resultado;
             try {
               const text = await response.text();
-              console.log('📥 Resposta texto:', text.substring(0, 200));
+              console.log('📥 Resposta texto COMPLETA:', text);
               resultado = JSON.parse(text);
               console.log('📥 Resposta JSON:', resultado);
+              
+              // Verificar se houve erro no Apps Script
+              if (!resultado.success) {
+                console.error(`❌ Apps Script retornou erro para ${ativo}:`, resultado.error);
+                detalhesErros.push(`${ativo}: ${resultado.error}`);
+                erros++;
+              } else {
+                console.log(`✅ Apps Script confirmou atualização de ${ativo}`);
+                console.log(`   → Linha: ${resultado.row}, Situação: ${resultado.situacao}, Plaqueta: ${resultado.plaqueta}`);
+                sucessos++;
+              }
+              
             } catch (parseErr) {
-              console.warn('⚠️ Não foi possível parsear resposta');
-              resultado = { success: true }; // Assumir sucesso se não conseguir ler
-            }
-            
-            if (resultado.success || response.ok) {
-              sucessos++;
-              console.log(`✅ Ativo ${ativo} sincronizado`);
-            } else {
-              console.error(`❌ Erro ao sincronizar ${ativo}:`, resultado.error);
+              console.error('⚠️ ERRO ao parsear resposta:', parseErr);
+              console.error('⚠️ Texto recebido:', text);
+              detalhesErros.push(`${ativo}: Erro ao ler resposta`);
               erros++;
             }
             
@@ -804,9 +821,20 @@
             
           } catch (err) {
             console.error('❌ Erro ao sincronizar ativo', ativo, err);
+            detalhesErros.push(`${ativo}: ${err.message}`);
             erros++;
           }
         }
+        
+        console.log('\n🏁 ═══════════════════════════════════════════');
+        console.log('🏁 SINCRONIZAÇÃO FINALIZADA');
+        console.log('🏁 ═══════════════════════════════════════════');
+        console.log('✅ Sucessos:', sucessos);
+        console.log('❌ Erros:', erros);
+        if (detalhesErros.length > 0) {
+          console.log('📋 Detalhes dos erros:', detalhesErros);
+        }
+        console.log('🏁 ═══════════════════════════════════════════\n');
         
         if (erros === 0) {
           syncStatus.className = 'sync-status success';
@@ -814,7 +842,7 @@
           playBeep('success');
         } else {
           syncStatus.className = 'sync-status error';
-          syncStatus.textContent = `⚠️ ${sucessos} OK, ${erros} com erro. Verifique a planilha.`;
+          syncStatus.textContent = `⚠️ ${sucessos} OK, ${erros} erros.\n\n${detalhesErros.join('\n')}`;
           playBeep('warning');
         }
         
@@ -904,11 +932,11 @@
           <dd>${new Date(r.timestamp).toLocaleString('pt-BR')}</dd>
         </dl>
         
-        <div style="display: flex; gap: 8px; margin-top: 12px; border-top: 1px solid #ddd; padding-top: 8px;">
-          <button onclick="editResult(${r.id})" style="flex: 1; padding: 8px; background: #f39c12; color: white; border: none; border-radius: 6px; font-size: 0.9em; cursor: pointer;">
+        <div style="display: flex; gap: 6px; margin-top: 12px; border-top: 1px solid #ddd; padding-top: 8px; flex-wrap: nowrap;">
+          <button onclick="editResult(${r.id})" style="flex: 1; min-width: 0; padding: 8px 4px; background: #f39c12; color: white; border: none; border-radius: 6px; font-size: 0.85em; cursor: pointer; white-space: nowrap;">
             ✏️ Editar
           </button>
-          <button onclick="deleteResult(${r.id})" style="flex: 1; padding: 8px; background: #e74c3c; color: white; border: none; border-radius: 6px; font-size: 0.9em; cursor: pointer;">
+          <button onclick="deleteResult(${r.id})" style="flex: 1; min-width: 0; padding: 8px 4px; background: #e74c3c; color: white; border: none; border-radius: 6px; font-size: 0.85em; cursor: pointer; white-space: nowrap;">
             🗑️ Excluir
           </button>
         </div>
@@ -1756,7 +1784,6 @@
       // Importação e sincronização
       fileInput.addEventListener('change', handleFileImport);
       loadGoogleSheetBtn.addEventListener('click', loadFromGoogleSheets);
-      testAppsScriptBtn.addEventListener('click', testAppsScript);
       syncToSheetBtn.addEventListener('click', syncToGoogleSheets);
       
       appsScriptUrl.addEventListener('input', () => {
@@ -1820,7 +1847,6 @@
         }
       }
       
-      console.log('✓ App de Verificação de Patrimônio carregado');
       
       // Registrar Service Worker para PWA
       if ('serviceWorker' in navigator) {
@@ -1840,3 +1866,4 @@
   </script>
 </body>
 </html>
+  
