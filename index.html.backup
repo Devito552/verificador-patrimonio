@@ -3,7 +3,6 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#2c3e50">
@@ -380,16 +379,16 @@
       <div id="qrDetected" style="display:none; background:#d4edda; padding:8px; border-radius:6px; margin-top:8px; border-left:4px solid #28a745;">
         <strong>✅ QR Detectado:</strong> <span id="qrValue"></span>
       </div>
-      <div id="scanningStatus" style="background:#d1ecf1; padding:8px; border-radius:6px; margin-top:8px; border-left:4px solid #17a2b8;">
-        <strong>🛒 MODO MERCADO ATIVADO!</strong>
-        <div style="font-size:0.85em; margin-top:4px; color:#0c5460;">
-          ✅ Aponte para o QR → Ouça o BIP → Próximo item!<br>
-          🤖 Tudo automático, sem apertar botões!<br>
-          📱 Deixe a câmera ligada e continue escaneando
+      <div id="scanningStatus" style="background:#fff3cd; padding:8px; border-radius:6px; margin-top:8px; border-left:4px solid #f39c12;">
+        <strong>🔍 Procurando QR code...</strong>
+        <div style="font-size:0.85em; margin-top:4px; color:#856404;">
+          • Aponte para a ETIQUETA COMPLETA (QR + número)<br>
+          • Mantenha dentro do quadrado amarelo<br>
+          • Se não detectar QR, clique "Escanear Agora"
         </div>
       </div>
       <button id="scanBothBtn" class="success" style="width:100%; margin-top:8px; display:none;">
-        🚀 Escanear QR + Número Juntos (backup manual)
+        🚀 Escanear QR + Número Juntos
       </button>
     </div>
 
@@ -465,8 +464,6 @@
     let recordId = 0;
     let lastQRCode = null;
     let lastQRTime = 0;
-    let lastOCRText = null;
-    let lastOCRTime = 0;
     
     // Planilha de ativos importada
     let assetDatabase = [];
@@ -545,15 +542,6 @@
       document.getElementById('okCount').textContent = ok;
       document.getElementById('errCount').textContent = err;
       document.getElementById('warnCount').textContent = warn;
-      
-      // 🛒 Atualizar contador no modo mercado
-      const scanningStatus = document.getElementById('scanningStatus');
-      if (scanningStatus && html5QrScanner) {
-        const title = scanningStatus.querySelector('strong');
-        if (title && title.textContent.includes('MODO MERCADO')) {
-          title.textContent = `🛒 MODO MERCADO ATIVADO! (${total} itens)`;
-        }
-      }
     }
 
     // ============================================
@@ -817,18 +805,8 @@
           <dt>�🕐 Data/Hora:</dt>
           <dd>${new Date(r.timestamp).toLocaleString('pt-BR')}</dd>
         </dl>
-        
-        <div style="display: flex; gap: 8px; margin-top: 12px; border-top: 1px solid #ddd; padding-top: 8px;">
-          <button onclick="editResult(${r.id})" style="flex: 1; padding: 8px; background: #f39c12; color: white; border: none; border-radius: 6px; font-size: 0.9em; cursor: pointer;">
-            ✏️ Editar
-          </button>
-          <button onclick="deleteResult(${r.id})" style="flex: 1; padding: 8px; background: #e74c3c; color: white; border: none; border-radius: 6px; font-size: 0.9em; cursor: pointer;">
-            🗑️ Excluir
-          </button>
-        </div>
       `;
       
-      div.dataset.id = r.id;
       resultsList.insertBefore(div, resultsList.firstChild);
       
       // Limitar a exibição a 20 itens
@@ -905,18 +883,14 @@
           );
           
           console.log('✅ Scanner iniciado (FPS: 20, área: 90%, formatos: todos)');
-          console.log('� ═══════════════════════════════════════════');
-          console.log('🛒 MODO MERCADO ATIVADO!');
-          console.log('🛒 ═══════════════════════════════════════════');
-          console.log('📋 QR Automático:', autoQR.checked);
-          console.log('📋 OCR Automático:', autoOCR.checked);
-          console.log('🎯 Fluxo: Aponta QR → BIP → OCR → Próximo!');
-          console.log('� ═══════════════════════════════════════════');
+          console.log('📋 Modo automático QR:', autoQR.checked);
+          console.log('📋 OCR automático:', autoOCR.checked);
+          console.log('💡 DICA: Use o botão "Escanear QR + Número Juntos"!');
           
           reader.style.display = 'block';
           reader.classList.add('preview-overlay');
           cameraControls.style.display = 'block';
-          scanBothBtn.style.display = 'block'; // Mostrar botão combinado (backup)
+          scanBothBtn.style.display = 'block'; // Mostrar botão combinado
           startBtn.disabled = true;
           stopBtn.disabled = false;
           scanOnceBtn.disabled = false;
@@ -991,28 +965,17 @@
         }, 5000);
       }
       
-      // 🤖 TENTAR PAREAMENTO AUTOMÁTICO
-      if (tryAutoPairing()) {
-        console.log('✅ Pareamento automático executado!');
-        return;
-      }
-      
-      // 🛒 MODO MERCADO: OCR automático SEMPRE após detectar QR
-      if (autoQR.checked && autoOCR.checked) {
-        console.log('🛒 MODO MERCADO: Iniciando OCR automático em 0.5 segundos...');
-        const scanningStatus = document.getElementById('scanningStatus');
-        if (scanningStatus) {
-          const originalHtml = scanningStatus.innerHTML;
-          scanningStatus.innerHTML = `<strong>� Processando OCR...</strong><div style="font-size:0.85em;margin-top:4px;">Aguarde...</div>`;
-          setTimeout(() => {
-            scanningStatus.innerHTML = originalHtml;
-          }, 3000);
+      // Se modo automático QR estiver ativo
+      if (autoQR.checked) {
+        if (autoOCR.checked) {
+          // Fazer OCR automaticamente após detectar QR
+          console.log('🔄 Modo AUTO: Iniciando OCR automático em 1 segundo...');
+          setTimeout(() => scanOnce(decodedText), 1000);
+        } else {
+          // Apenas registrar o QR sem OCR
+          console.log('📝 Registrando apenas QR (OCR desativado)');
+          handlePairing(null, decodedText);
         }
-        setTimeout(() => scanOnce(decodedText), 500);
-      } else if (autoQR.checked) {
-        // Apenas registrar o QR sem OCR (se OCR automático estiver desativado)
-        console.log('📝 Registrando apenas QR (OCR desativado)');
-        handlePairing(null, decodedText);
       }
     }
     
@@ -1304,20 +1267,8 @@
 
         const ocrText = text.trim();
         const ocrDigits = onlyDigits(ocrText);
-        
-        console.log('✅ OCR detectado:', ocrDigits || ocrText);
-        
-        // Armazenar OCR para pareamento automático
-        lastOCRText = ocrDigits || ocrText;
-        lastOCRTime = Date.now();
-        
-        // 🤖 TENTAR PAREAMENTO AUTOMÁTICO
-        if (tryAutoPairing()) {
-          console.log('✅ Pareamento automático executado após OCR!');
-        } else {
-          // Pareamento manual tradicional
-          await handlePairing(ocrDigits || ocrText, qrRaw);
-        }
+
+        await handlePairing(ocrDigits || ocrText, qrRaw);
         
       } catch (err) {
         console.error(err);
@@ -1330,39 +1281,6 @@
     }
 
  
-    // ============================================
-    // PAREAMENTO AUTOMÁTICO
-    // ============================================
-    function tryAutoPairing() {
-      const now = Date.now();
-      
-      // Verificar se temos QR e OCR recentes (últimos 5 segundos)
-      const hasRecentQR = lastQRCode && (now - lastQRTime) < 5000;
-      const hasRecentOCR = lastOCRText && (now - lastOCRTime) < 5000;
-      
-      if (hasRecentQR && hasRecentOCR) {
-        console.log('🤖 PAREAMENTO AUTOMÁTICO detectado!');
-        console.log('   QR:', lastQRCode);
-        console.log('   OCR:', lastOCRText);
-        
-        // Fazer o pareamento
-        handlePairing(lastOCRText, lastQRCode);
-        
-        // Limpar para evitar duplicatas
-        lastQRCode = null;
-        lastOCRText = null;
-        lastQRTime = 0;
-        lastOCRTime = 0;
-        
-        // Feedback visual
-        playBeep('success');
-        
-        return true;
-      }
-      
-      return false;
-    }
-
     async function handlePairing(ocrNumber, qrRaw) {
       console.log('🔍 handlePairing chamado:', { ocrNumber, qrRaw });
       
@@ -1443,38 +1361,6 @@
         situacao_atual: situacaoAtual,
         plaqueta_qr_code: plaquetaQrCode
       });
-      
-      // 🛒 MODO MERCADO: Mostrar feedback rápido e continuar
-      const scanningStatus = document.getElementById('scanningStatus');
-      if (scanningStatus) {
-        const originalBg = scanningStatus.style.background;
-        const originalBorder = scanningStatus.style.borderLeft;
-        const originalHtml = scanningStatus.innerHTML;
-        
-        // Feedback visual rápido baseado no status
-        if (status === 'OK') {
-          scanningStatus.style.background = '#d4edda';
-          scanningStatus.style.borderLeft = '4px solid #28a745';
-          scanningStatus.innerHTML = `<strong>✅ ITEM ${ocrDigits || qrDigits} REGISTRADO!</strong><div style="font-size:0.85em;margin-top:4px;">Aponte para o próximo QR...</div>`;
-        } else if (status === 'Erro') {
-          scanningStatus.style.background = '#f8d7da';
-          scanningStatus.style.borderLeft = '4px solid #dc3545';
-          scanningStatus.innerHTML = `<strong>❌ ERRO - Verifique o item!</strong><div style="font-size:0.85em;margin-top:4px;">Aponte para o próximo QR...</div>`;
-        } else {
-          scanningStatus.style.background = '#fff3cd';
-          scanningStatus.style.borderLeft = '4px solid #ffc107';
-          scanningStatus.innerHTML = `<strong>⚠️ AVISO - Verificar depois!</strong><div style="font-size:0.85em;margin-top:4px;">Aponte para o próximo QR...</div>`;
-        }
-        
-        // Voltar ao estado original após 2 segundos
-        setTimeout(() => {
-          scanningStatus.style.background = originalBg;
-          scanningStatus.style.borderLeft = originalBorder;
-          scanningStatus.innerHTML = originalHtml;
-        }, 2000);
-      }
-      
-      console.log('🛒 Pronto para o próximo item!');
     }
 
     
@@ -1546,115 +1432,6 @@
       alert('✓ Dados limpos com sucesso!');
     }
 
-    // ============================================
-    // EDITAR E EXCLUIR VERIFICAÇÕES
-    // ============================================
-    function deleteResult(id) {
-      if (!confirm('⚠️ Deseja realmente excluir esta verificação?')) {
-        return;
-      }
-      
-      const index = results.findIndex(r => r.id === id);
-      if (index !== -1) {
-        results.splice(index, 1);
-      }
-      
-      const element = resultsList.querySelector(`[data-id="${id}"]`);
-      if (element) {
-        element.remove();
-      }
-      
-      localStorage.setItem('patrimonio_results', JSON.stringify(results));
-      updateStats();
-      playBeep('success');
-    }
-
-    function editResult(id) {
-      const result = results.find(r => r.id === id);
-      if (!result) return;
-      
-      const element = resultsList.querySelector(`[data-id="${id}"]`);
-      if (!element) return;
-      
-      element.dataset.originalHtml = element.innerHTML;
-      element.innerHTML = `
-        <div style="background: #fff3cd; padding: 12px; border-radius: 8px; border-left: 4px solid #f39c12;">
-          <h4 style="margin: 0 0 12px 0;">✏️ Editando #${id}</h4>
-          
-          <div style="display: grid; gap: 8px;">
-            <div>
-              <label style="font-size: 0.9em; font-weight: bold;">SITUAÇÃO ATUAL:</label>
-              <select id="edit_situacao_${id}" style="width: 100%; padding: 6px; border-radius: 4px; border: 2px solid #ddd;">
-                <option value="OK" ${result.situacao_atual === 'OK' ? 'selected' : ''}>OK</option>
-                <option value="NÃO ENCONTRADO" ${result.situacao_atual === 'NÃO ENCONTRADO' ? 'selected' : ''}>NÃO ENCONTRADO</option>
-              </select>
-            </div>
-            
-            <div>
-              <label style="font-size: 0.9em; font-weight: bold;">PLAQUETA QR-CODE:</label>
-              <select id="edit_plaqueta_${id}" style="width: 100%; padding: 6px; border-radius: 4px; border: 2px solid #ddd;">
-                <option value="OK" ${result.plaqueta_qr_code === 'OK' ? 'selected' : ''}>OK</option>
-                <option value="ERRO" ${result.plaqueta_qr_code === 'ERRO' ? 'selected' : ''}>ERRO</option>
-                <option value="AVISO - Só QR" ${result.plaqueta_qr_code === 'AVISO - Só QR' ? 'selected' : ''}>AVISO - Só QR</option>
-                <option value="AVISO - Só OCR" ${result.plaqueta_qr_code === 'AVISO - Só OCR' ? 'selected' : ''}>AVISO - Só OCR</option>
-              </select>
-            </div>
-          </div>
-          
-          <div style="display: flex; gap: 8px; margin-top: 12px;">
-            <button onclick="saveEdit(${id})" style="flex: 1; padding: 8px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">
-              ✓ Salvar
-            </button>
-            <button onclick="cancelEdit(${id})" style="flex: 1; padding: 8px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer;">
-              ✗ Cancelar
-            </button>
-          </div>
-        </div>
-      `;
-    }
-
-    function saveEdit(id) {
-      const result = results.find(r => r.id === id);
-      if (!result) return;
-      
-      const situacaoSelect = document.getElementById(`edit_situacao_${id}`);
-      const plaquetaSelect = document.getElementById(`edit_plaqueta_${id}`);
-      
-      if (!situacaoSelect || !plaquetaSelect) return;
-      
-      result.situacao_atual = situacaoSelect.value;
-      result.plaqueta_qr_code = plaquetaSelect.value;
-      
-      if (result.plaqueta_qr_code === 'OK') {
-        result.status = 'OK';
-      } else if (result.plaqueta_qr_code === 'ERRO') {
-        result.status = 'Erro';
-      } else {
-        result.status = 'Aviso';
-      }
-      
-      localStorage.setItem('patrimonio_results', JSON.stringify(results));
-      
-      const element = resultsList.querySelector(`[data-id="${id}"]`);
-      if (element) {
-        element.remove();
-      }
-      renderResult(result);
-      updateStats();
-      playBeep('success');
-    }
-
-    function cancelEdit(id) {
-      const element = resultsList.querySelector(`[data-id="${id}"]`);
-      if (!element || !element.dataset.originalHtml) return;
-      
-      element.innerHTML = element.dataset.originalHtml;
-      delete element.dataset.originalHtml;
-    }
-
-    // ============================================
-    // INICIALIZAÇÃO
-    // ============================================
     function initApp() {
       startBtn.addEventListener('click', startCamera);
       stopBtn.addEventListener('click', stopCamera);
