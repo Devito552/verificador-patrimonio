@@ -94,6 +94,27 @@
       background: black;
       margin: 12px 0;
     }
+    #reader video {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .preview-overlay {
+      position: relative;
+    }
+    .preview-overlay::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80%;
+      height: 40%;
+      border: 3px dashed #f39c12;
+      border-radius: 8px;
+      pointer-events: none;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.3);
+    }
     .camera-controls {
       background: white;
       padding: 12px;
@@ -774,18 +795,33 @@
             {
               fps: 10,
               qrbox: { width: 250, height: 250 },
-              aspectRatio: 1.0
+              aspectRatio: 1.0,
+              videoConstraints: {
+                facingMode: "environment",
+                focusMode: "continuous"
+              }
             },
             qrSuccessCallback,
             qrErrorCallback
           );
           
           reader.style.display = 'block';
+          reader.classList.add('preview-overlay');
           cameraControls.style.display = 'block';
           startBtn.disabled = true;
           stopBtn.disabled = false;
           scanOnceBtn.disabled = false;
           qrContinuous = autoQR.checked;
+          
+          // Garantir que o vídeo seja exibido em tela cheia
+          setTimeout(() => {
+            const videoElement = reader.querySelector('video');
+            if (videoElement) {
+              videoElement.style.display = 'block';
+              videoElement.style.width = '100%';
+              videoElement.style.height = 'auto';
+            }
+          }, 500);
         } else {
           alert('❌ Nenhuma câmera encontrada no dispositivo');
         }
@@ -807,6 +843,7 @@
       html5QrScanner.clear();
       html5QrScanner = null;
       reader.style.display = 'none';
+      reader.classList.remove('preview-overlay');
       cameraControls.style.display = 'none';
       startBtn.disabled = false;
       stopBtn.disabled = true;
