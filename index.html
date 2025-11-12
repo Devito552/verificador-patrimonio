@@ -82,6 +82,8 @@
     button:disabled { background: #95a5a6; cursor: not-allowed; transform: none; }
     button.success { background: #27ae60; }
     button.success:hover { background: #229954; }
+    button.secondary { background: #95a5a6; }
+    button.secondary:hover { background: #7f8c8d; }
     button.danger { background: #e74c3c; }
     button.danger:hover { background: #c0392b; }
     button.warning { background: #f39c12; }
@@ -420,7 +422,10 @@
         </label>
         <input type="text" id="appsScriptUrl" placeholder="https://script.google.com/macros/s/.../exec" 
                style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; margin: 8px 0; font-size: 0.9em;">
-        <button id="syncToSheetBtn" class="success" style="width: 100%;" disabled>☁️ Sincronizar com Google Sheets</button>
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <button id="testAppsScriptBtn" class="secondary" style="flex: 1;">🧪 Testar Conexão</button>
+          <button id="syncToSheetBtn" class="success" style="flex: 2;" disabled>☁️ Sincronizar com Google Sheets</button>
+        </div>
       </div>
       
       <div id="syncStatus" class="sync-status"></div>
@@ -495,6 +500,7 @@
     const loadGoogleSheetBtn = document.getElementById('loadGoogleSheetBtn');
     const appsScriptUrl = document.getElementById('appsScriptUrl');
     const syncToSheetBtn = document.getElementById('syncToSheetBtn');
+    const testAppsScriptBtn = document.getElementById('testAppsScriptBtn');
     const sheetInfo = document.getElementById('sheetInfo');
     const syncStatus = document.getElementById('syncStatus');
 
@@ -662,6 +668,62 @@
       }
     }
     
+    // ============================================
+    // TESTE DE CONEXÃO COM APPS SCRIPT
+    // ============================================
+    async function testAppsScript() {
+      const scriptUrl = appsScriptUrl.value.trim();
+      if (!scriptUrl) {
+        alert('⚠️ Digite a URL do Apps Script primeiro!');
+        return;
+      }
+      
+      testAppsScriptBtn.disabled = true;
+      testAppsScriptBtn.textContent = '⏳ Testando...';
+      syncStatus.className = 'sync-status';
+      syncStatus.textContent = '';
+      
+      try {
+        console.log('🧪 Testando conexão com:', scriptUrl);
+        
+        const response = await fetch(scriptUrl, {
+          method: 'GET',
+          redirect: 'follow'
+        });
+        
+        console.log('📥 Status HTTP:', response.status);
+        const text = await response.text();
+        console.log('📥 Resposta:', text);
+        
+        let resultado;
+        try {
+          resultado = JSON.parse(text);
+        } catch (e) {
+          throw new Error('Resposta não é JSON válido. Verifique se a URL está correta.');
+        }
+        
+        if (resultado.success) {
+          syncStatus.className = 'sync-status success';
+          syncStatus.textContent = `✅ Conexão OK! Apps Script está funcionando.\n${resultado.message || ''}`;
+          playBeep('success');
+          console.log('✅ Apps Script respondeu:', resultado);
+        } else {
+          syncStatus.className = 'sync-status error';
+          syncStatus.textContent = `❌ Apps Script retornou erro: ${resultado.error || 'Erro desconhecido'}`;
+          playBeep('error');
+        }
+        
+      } catch (err) {
+        console.error('❌ Erro no teste:', err);
+        syncStatus.className = 'sync-status error';
+        syncStatus.textContent = `❌ Erro ao conectar: ${err.message}\n\nVerifique:\n1. URL está correta?\n2. Apps Script foi implantado como "Aplicativo da Web"?\n3. Acesso configurado como "Qualquer pessoa"?`;
+        playBeep('error');
+      } finally {
+        testAppsScriptBtn.disabled = false;
+        testAppsScriptBtn.textContent = '🧪 Testar Conexão';
+      }
+    }
+
     async function syncToGoogleSheets() {
       const scriptUrl = appsScriptUrl.value.trim();
       if (!scriptUrl) {
@@ -703,21 +765,45 @@
               plaqueta_qr_code: r.plaqueta_qr_code || ''
             };
             
+            console.log('📤 Enviando:', payload);
+            
+            // Usar POST via form (bypass CORS)
+            const formData = new FormData();
+            formData.append('payload', JSON.stringify(payload));
+            
             const response = await fetch(scriptUrl, {
               method: 'POST',
-              mode: 'no-cors',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
+              body: formData,
+              redirect: 'follow'
             });
             
-            // no-cors não retorna resposta, assumimos sucesso
-            sucessos++;
+            console.log('📥 Status HTTP:', response.status);
+            
+            // Tentar ler resposta
+            let resultado;
+            try {
+              const text = await response.text();
+              console.log('📥 Resposta texto:', text.substring(0, 200));
+              resultado = JSON.parse(text);
+              console.log('📥 Resposta JSON:', resultado);
+            } catch (parseErr) {
+              console.warn('⚠️ Não foi possível parsear resposta');
+              resultado = { success: true }; // Assumir sucesso se não conseguir ler
+            }
+            
+            if (resultado.success || response.ok) {
+              sucessos++;
+              console.log(`✅ Ativo ${ativo} sincronizado`);
+            } else {
+              console.error(`❌ Erro ao sincronizar ${ativo}:`, resultado.error);
+              erros++;
+            }
             
             // Pequena pausa entre requisições
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, 500));
             
           } catch (err) {
-            console.error('Erro ao sincronizar ativo', ativo, err);
+            console.error('❌ Erro ao sincronizar ativo', ativo, err);
             erros++;
           }
         }
@@ -1670,6 +1756,7 @@
       // Importação e sincronização
       fileInput.addEventListener('change', handleFileImport);
       loadGoogleSheetBtn.addEventListener('click', loadFromGoogleSheets);
+      testAppsScriptBtn.addEventListener('click', testAppsScript);
       syncToSheetBtn.addEventListener('click', syncToGoogleSheets);
       
       appsScriptUrl.addEventListener('input', () => {
