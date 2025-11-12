@@ -304,6 +304,7 @@
   </style>
   <!-- Dependências -->
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+  <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js" defer></script>
   <script src="https://unpkg.com/tesseract.js@5.0.4/dist/tesseract.min.js" defer></script>
   <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   <script defer>
@@ -312,6 +313,7 @@
       return new Promise((resolve) => {
         const checkLibraries = setInterval(() => {
           if (typeof Html5Qrcode !== 'undefined' && 
+              typeof jsQR !== 'undefined' &&
               typeof Tesseract !== 'undefined' && 
               typeof XLSX !== 'undefined') {
             clearInterval(checkLibraries);
@@ -498,8 +500,17 @@
     // ============================================
     function onlyDigits(str) {
       if (!str) return '';
-      const m = str.match(/\d+/g);
-      return m ? m.join('') : '';
+      const matches = str.match(/\d+/g);
+      if (!matches) return '';
+      
+      // Se houver múltiplos números, pegar o maior (mais provável de ser o correto)
+      if (matches.length > 1) {
+        const sorted = matches.sort((a, b) => b.length - a.length);
+        console.log('📊 Múltiplos números encontrados:', matches, '→ Escolhendo:', sorted[0]);
+        return sorted[0];
+      }
+      
+      return matches[0];
     }
 
     function playBeep(type = 'success') {
@@ -989,47 +1000,141 @@
         
         console.log('📐 Imagem capturada:', canvas.width, 'x', canvas.height);
         
-        // Tentar detectar QR na imagem completa com múltiplas tentativas
+        // Tentar detectar QR com múltiplas técnicas
         let qrRaw = null;
-        scanBothBtn.textContent = '⏳ Procurando QR code...';
+        scanBothBtn.textContent = '⏳ Procurando QR (1/6)...';
         
-        // Tentativa 1: Imagem completa
+        // Tentativa 1: jsQR imagem completa
         try {
-          const dataUrl = canvas.toDataURL('image/png');
-          qrRaw = await Html5Qrcode.scanFile(dataUrl, true);
-          console.log('✅ QR detectado (tentativa 1):', qrRaw);
-        } catch (e) {
-          console.log('❌ Tentativa 1 falhou');
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "dontInvert"
+          });
           
-          // Tentativa 2: Lado esquerdo da imagem (onde geralmente está o QR)
+          if (qrCode && qrCode.data) {
+            qrRaw = qrCode.data;
+            console.log('✅ QR detectado (tent. 1 - jsQR completo):', qrRaw);
+          } else {
+            throw new Error('QR não encontrado');
+          }
+        } catch (e) {
+          console.log('❌ Tentativa 1/6 falhou');
+          scanBothBtn.textContent = '⏳ Procurando QR (2/6)...';
+          
+          // Tentativa 2: jsQR com inversão
           try {
-            const leftCanvas = document.createElement('canvas');
-            const leftWidth = Math.floor(canvas.width * 0.6);
-            leftCanvas.width = leftWidth;
-            leftCanvas.height = canvas.height;
-            const leftCtx = leftCanvas.getContext('2d');
-            leftCtx.drawImage(canvas, 0, 0, leftWidth, canvas.height, 0, 0, leftWidth, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: "attemptBoth"
+            });
             
-            const leftDataUrl = leftCanvas.toDataURL('image/png');
-            qrRaw = await Html5Qrcode.scanFile(leftDataUrl, true);
-            console.log('✅ QR detectado no lado esquerdo (tentativa 2):', qrRaw);
+            if (qrCode && qrCode.data) {
+              qrRaw = qrCode.data;
+              console.log('✅ QR detectado (tent. 2 - jsQR invertido):', qrRaw);
+            } else {
+              throw new Error('QR não encontrado');
+            }
           } catch (e2) {
-            console.log('❌ Tentativa 2 falhou');
+            console.log('❌ Tentativa 2/6 falhou');
+            scanBothBtn.textContent = '⏳ Procurando QR (3/6)...';
             
-            // Tentativa 3: Aumentar contraste
+            // Tentativa 3: Lado esquerdo (50%)
             try {
-              const contrastCanvas = document.createElement('canvas');
-              contrastCanvas.width = canvas.width;
-              contrastCanvas.height = canvas.height;
-              const contrastCtx = contrastCanvas.getContext('2d');
-              contrastCtx.filter = 'contrast(2) brightness(1.2)';
-              contrastCtx.drawImage(canvas, 0, 0);
+              const leftWidth = Math.floor(canvas.width * 0.5);
+              const leftCanvas = document.createElement('canvas');
+              leftCanvas.width = leftWidth;
+              leftCanvas.height = canvas.height;
+              const leftCtx = leftCanvas.getContext('2d');
+              leftCtx.drawImage(canvas, 0, 0, leftWidth, canvas.height, 0, 0, leftWidth, canvas.height);
               
-              const contrastDataUrl = contrastCanvas.toDataURL('image/png');
-              qrRaw = await Html5Qrcode.scanFile(contrastDataUrl, true);
-              console.log('✅ QR detectado com contraste (tentativa 3):', qrRaw);
+              const leftImageData = leftCtx.getImageData(0, 0, leftWidth, canvas.height);
+              const qrCode = jsQR(leftImageData.data, leftImageData.width, leftImageData.height, {
+                inversionAttempts: "attemptBoth"
+              });
+              
+              if (qrCode && qrCode.data) {
+                qrRaw = qrCode.data;
+                console.log('✅ QR detectado (tent. 3 - lado esquerdo):', qrRaw);
+              } else {
+                throw new Error('QR não encontrado');
+              }
             } catch (e3) {
-              console.log('⚠️ QR não encontrado após 3 tentativas, continuando com OCR...');
+              console.log('❌ Tentativa 3/6 falhou');
+              scanBothBtn.textContent = '⏳ Procurando QR (4/6)...';
+              
+              // Tentativa 4: Quadrante superior esquerdo
+              try {
+                const quadWidth = Math.floor(canvas.width * 0.5);
+                const quadHeight = Math.floor(canvas.height * 0.5);
+                const quadCanvas = document.createElement('canvas');
+                quadCanvas.width = quadWidth;
+                quadCanvas.height = quadHeight;
+                const quadCtx = quadCanvas.getContext('2d');
+                quadCtx.drawImage(canvas, 0, 0, quadWidth, quadHeight, 0, 0, quadWidth, quadHeight);
+                
+                const quadImageData = quadCtx.getImageData(0, 0, quadWidth, quadHeight);
+                const qrCode = jsQR(quadImageData.data, quadImageData.width, quadImageData.height, {
+                  inversionAttempts: "attemptBoth"
+                });
+                
+                if (qrCode && qrCode.data) {
+                  qrRaw = qrCode.data;
+                  console.log('✅ QR detectado (tent. 4 - quadrante superior):', qrRaw);
+                } else {
+                  throw new Error('QR não encontrado');
+                }
+              } catch (e4) {
+                console.log('❌ Tentativa 4/6 falhou');
+                scanBothBtn.textContent = '⏳ Procurando QR (5/6)...';
+                
+                // Tentativa 5: Escala de cinza + alto contraste
+                try {
+                  const grayCanvas = document.createElement('canvas');
+                  grayCanvas.width = canvas.width;
+                  grayCanvas.height = canvas.height;
+                  const grayCtx = grayCanvas.getContext('2d');
+                  grayCtx.filter = 'grayscale(100%) contrast(3)';
+                  grayCtx.drawImage(canvas, 0, 0);
+                  
+                  const grayImageData = grayCtx.getImageData(0, 0, grayCanvas.width, grayCanvas.height);
+                  const qrCode = jsQR(grayImageData.data, grayImageData.width, grayImageData.height, {
+                    inversionAttempts: "attemptBoth"
+                  });
+                  
+                  if (qrCode && qrCode.data) {
+                    qrRaw = qrCode.data;
+                    console.log('✅ QR detectado (tent. 5 - alto contraste):', qrRaw);
+                  } else {
+                    throw new Error('QR não encontrado');
+                  }
+                } catch (e5) {
+                  console.log('❌ Tentativa 5/6 falhou');
+                  scanBothBtn.textContent = '⏳ Procurando QR (6/6)...';
+                  
+                  // Tentativa 6: Imagem reduzida (menor resolução, mais rápido)
+                  try {
+                    const smallCanvas = document.createElement('canvas');
+                    smallCanvas.width = canvas.width / 2;
+                    smallCanvas.height = canvas.height / 2;
+                    const smallCtx = smallCanvas.getContext('2d');
+                    smallCtx.drawImage(canvas, 0, 0, smallCanvas.width, smallCanvas.height);
+                    
+                    const smallImageData = smallCtx.getImageData(0, 0, smallCanvas.width, smallCanvas.height);
+                    const qrCode = jsQR(smallImageData.data, smallImageData.width, smallImageData.height, {
+                      inversionAttempts: "attemptBoth"
+                    });
+                    
+                    if (qrCode && qrCode.data) {
+                      qrRaw = qrCode.data;
+                      console.log('✅ QR detectado (tent. 6 - resolução reduzida):', qrRaw);
+                    } else {
+                      throw new Error('QR não encontrado');
+                    }
+                  } catch (e6) {
+                    console.log('⚠️ QR não encontrado após 6 tentativas, continuando com OCR...');
+                  }
+                }
+              }
             }
           }
         }
