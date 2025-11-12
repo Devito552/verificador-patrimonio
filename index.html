@@ -367,13 +367,24 @@
         <strong>Modo Automático QR:</strong> Detecta QR codes continuamente
       </label>
       <label>
-        <input type="checkbox" id="autoOCR" />
+        <input type="checkbox" id="autoOCR" checked />
         <strong>OCR Automático:</strong> Extrai número automaticamente após QR
       </label>
       <label>
         <input type="checkbox" id="soundAlert" checked />
         <strong>Alertas Sonoros:</strong> Bipe ao detectar código
       </label>
+      <div id="qrDetected" style="display:none; background:#d4edda; padding:8px; border-radius:6px; margin-top:8px; border-left:4px solid #28a745;">
+        <strong>✅ QR Detectado:</strong> <span id="qrValue"></span>
+      </div>
+      <div id="scanningStatus" style="background:#fff3cd; padding:8px; border-radius:6px; margin-top:8px; border-left:4px solid #f39c12;">
+        <strong>🔍 Procurando QR code...</strong>
+        <div style="font-size:0.85em; margin-top:4px; color:#856404;">
+          • Aponte a câmera para o QR code<br>
+          • Mantenha a etiqueta dentro do quadrado amarelo<br>
+          • Aproxime ou afaste até ficar nítido
+        </div>
+      </div>
     </div>
 
     <!-- Seção de Importação da Planilha -->
@@ -793,17 +804,31 @@
           await html5QrScanner.start(
             currentCameraId,
             {
-              fps: 10,
-              qrbox: { width: 250, height: 250 },
+              fps: 30, // Aumentar FPS para detectar mais rápido
+              qrbox: function(viewfinderWidth, viewfinderHeight) {
+                // Área maior de detecção - 70% da tela
+                const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                const qrboxSize = Math.floor(minEdge * 0.7);
+                return { width: qrboxSize, height: qrboxSize };
+              },
               aspectRatio: 1.0,
               videoConstraints: {
                 facingMode: "environment",
                 focusMode: "continuous"
+              },
+              // Tentar detectar QR codes menores e mais distantes
+              formatsToSupport: [0], // QR_CODE
+              experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
               }
             },
             qrSuccessCallback,
             qrErrorCallback
           );
+          
+          console.log('✅ Scanner QR iniciado com sucesso (FPS: 30, área: 70%)');
+          console.log('📋 Modo automático QR:', autoQR.checked);
+          console.log('📋 OCR automático:', autoOCR.checked);
           
           reader.style.display = 'block';
           reader.classList.add('preview-overlay');
@@ -862,15 +887,34 @@
       lastQRCode = decodedText;
       lastQRTime = now;
       
-      console.log('✓ QR Code detectado:', decodedText);
+      console.log('✅ QR Code detectado:', decodedText);
       playBeep('success');
       
+      // Ocultar status de procura e mostrar QR detectado
+      const scanningStatus = document.getElementById('scanningStatus');
+      const qrDetectedDiv = document.getElementById('qrDetected');
+      const qrValueSpan = document.getElementById('qrValue');
+      
+      if (scanningStatus) scanningStatus.style.display = 'none';
+      
+      if (qrDetectedDiv && qrValueSpan) {
+        qrValueSpan.textContent = decodedText.substring(0, 50) + (decodedText.length > 50 ? '...' : '');
+        qrDetectedDiv.style.display = 'block';
+        setTimeout(() => { 
+          qrDetectedDiv.style.display = 'none';
+          if (scanningStatus) scanningStatus.style.display = 'block';
+        }, 5000);
+      }
+      
+      // Se modo automático QR estiver ativo
       if (autoQR.checked) {
         if (autoOCR.checked) {
-          // Fazer OCR automaticamente
-          setTimeout(() => scanOnce(decodedText), 500);
+          // Fazer OCR automaticamente após detectar QR
+          console.log('🔄 Modo AUTO: Iniciando OCR automático em 1 segundo...');
+          setTimeout(() => scanOnce(decodedText), 1000);
         } else {
-          // Apenas registrar o QR
+          // Apenas registrar o QR sem OCR
+          console.log('📝 Registrando apenas QR (OCR desativado)');
           handlePairing(null, decodedText);
         }
       }
@@ -891,7 +935,11 @@
     }
 
     function qrErrorCallback(err) {
-      // Ignorar erros normais de scan
+      // Ignorar erros normais de scan (quando não detecta QR)
+      // Apenas logar se for um erro diferente
+      if (err && !err.includes && typeof err === 'string' && !err.includes('NotFoundException')) {
+        console.log('⚠️ Erro QR:', err);
+      }
     }
 
     // ============================================
@@ -903,8 +951,10 @@
         return;
       }
       
+      console.log('📸 Iniciando scan OCR com QR:', qrFromAuto);
+      
       scanOnceBtn.disabled = true;
-      scanOnceBtn.textContent = '⏳ Processando...';
+      scanOnceBtn.textContent = '⏳ Processando OCR...';
       
       try {
         // Procurar elemento de vídeo interno
@@ -934,15 +984,21 @@
         const cctx = cropped.getContext('2d');
         cctx.drawImage(canvas, sx, sy, size, size, 0, 0, size, size);
 
-        // Tentar extrair QR da imagem se não veio do auto
+        // Se QR veio do modo automático, usar ele diretamente
         let qrRaw = qrFromAuto;
+        console.log('🔖 QR para usar:', qrRaw);
+        
+        // Tentar extrair QR da imagem apenas se não foi passado
         if (!qrRaw) {
           try {
             const dataUrl = cropped.toDataURL('image/png');
             const qrResult = await Html5Qrcode.scanFile(dataUrl, true);
-            if (qrResult) qrRaw = qrResult;
+            if (qrResult) {
+              qrRaw = qrResult;
+              console.log('✅ QR extraído da imagem:', qrRaw);
+            }
           } catch (e) {
-            console.log('QR não encontrado na imagem estática');
+            console.log('⚠️ QR não encontrado na imagem estática');
           }
         }
 
@@ -971,11 +1027,15 @@
     // COMPARAÇÃO E REGISTRO
     // ============================================
     async function handlePairing(ocrNumber, qrRaw) {
+      console.log('🔍 handlePairing chamado:', { ocrNumber, qrRaw });
+      
       const ocrDigits = onlyDigits(ocrNumber);
       
       // Extrair apenas o número do patrimônio do QR (antes do traço/descrição)
       const qrPatrimonio = extractPatrimonioFromQR(qrRaw);
       const qrDigits = qrPatrimonio || onlyDigits(qrRaw);
+      
+      console.log('📊 Processado:', { ocrDigits, qrDigits, qrRaw });
 
       let status = 'Erro';
       let compare = '—';
@@ -1022,6 +1082,8 @@
         status = 'Erro';
         playBeep('error');
       }
+
+      console.log('✅ Resultado:', { status, compare });
 
       addResult({
         ocr_number: ocrNumber,
