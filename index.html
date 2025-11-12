@@ -678,7 +678,9 @@
             qr_digits: r.qr_digits || '',
             compare: r.compare,
             status: r.status,
-            asset_info: r.asset_info || ''
+            asset_info: r.asset_info || '',
+            situacao_atual: r.situacao_atual || '',
+            plaqueta_qr_code: r.plaqueta_qr_code || ''
           }))
         };
         
@@ -768,7 +770,17 @@
           
           ${assetInfoHtml}
           
-          <dt>🕐 Data/Hora:</dt>
+          <dt>� SITUAÇÃO ATUAL:</dt>
+          <dd style="background: ${r.situacao_atual === 'OK' ? '#d4edda' : '#fff3cd'}; padding: 4px 8px; border-radius: 4px; font-weight: bold;">
+            ${r.situacao_atual || '—'}
+          </dd>
+          
+          <dt>🏷️ PLAQUETA QR-CODE:</dt>
+          <dd style="background: ${r.plaqueta_qr_code === 'OK' ? '#d4edda' : r.plaqueta_qr_code === 'ERRO' ? '#f8d7da' : '#fff3cd'}; padding: 4px 8px; border-radius: 4px; font-weight: bold;">
+            ${r.plaqueta_qr_code || '—'}
+          </dd>
+          
+          <dt>�🕐 Data/Hora:</dt>
           <dd>${new Date(r.timestamp).toLocaleString('pt-BR')}</dd>
         </dl>
       `;
@@ -1268,6 +1280,8 @@
       let status = 'Erro';
       let compare = '—';
       let assetInfo = '';
+      let situacaoAtual = '';
+      let plaquetaQrCode = '';
 
       // Buscar ativo na planilha importada
       const patrimonio = ocrDigits || qrDigits;
@@ -1282,36 +1296,46 @@
             }
           }
           assetInfo = assetDetails.slice(0, 3).join(' | ') || 'Encontrado na planilha';
+          
+          // SITUAÇÃO ATUAL: OK se encontrou na planilha
+          situacaoAtual = 'OK';
         } else {
           assetInfo = '⚠️ NÃO encontrado na planilha';
+          situacaoAtual = 'NÃO ENCONTRADO';
         }
       }
 
+      // PLAQUETA QR-CODE: Comparar OCR vs QR
       if (ocrDigits && qrDigits) {
         if (ocrDigits === qrDigits) {
           compare = '✓ Números Iguais (QR OK)';
           status = 'OK';
+          plaquetaQrCode = 'OK';
           playBeep('success');
         } else {
           compare = `✗ Divergentes (OCR: ${ocrDigits} ≠ QR: ${qrDigits})`;
           status = 'Erro';
+          plaquetaQrCode = 'ERRO';
           playBeep('error');
         }
       } else if (qrDigits && !ocrDigits) {
         compare = '⚠ Somente QR detectado (OCR falhou)';
         status = 'Aviso';
+        plaquetaQrCode = 'AVISO - Só QR';
         playBeep('warning');
       } else if (ocrDigits && !qrDigits) {
         compare = '⚠ Somente OCR detectado (QR não lido)';
         status = 'Aviso';
+        plaquetaQrCode = 'AVISO - Só OCR';
         playBeep('warning');
       } else {
         compare = '✗ Nenhum código detectado';
         status = 'Erro';
+        plaquetaQrCode = 'ERRO';
         playBeep('error');
       }
 
-      console.log('✅ Resultado:', { status, compare });
+      console.log('✅ Resultado:', { status, compare, situacaoAtual, plaquetaQrCode });
 
       addResult({
         ocr_number: ocrNumber,
@@ -1319,7 +1343,9 @@
         qr_digits: qrDigits,
         compare,
         status,
-        asset_info: assetInfo
+        asset_info: assetInfo,
+        situacao_atual: situacaoAtual,
+        plaqueta_qr_code: plaquetaQrCode
       });
     }
 
@@ -1333,7 +1359,7 @@
       }
 
       const ws_data = [
-        ['ID', 'Data/Hora', 'Número OCR', 'QR Code Completo', 'QR Números', 'Comparação', 'Status', 'Info do Ativo']
+        ['ID', 'Data/Hora', 'Número OCR', 'QR Code Completo', 'QR Números', 'Comparação', 'Status', 'Info do Ativo', 'SITUAÇÃO ATUAL', 'PLAQUETA QR-CODE']
       ].concat(
         results.map(r => [
           r.id,
@@ -1343,7 +1369,9 @@
           r.qr_digits || '',
           r.compare,
           r.status,
-          r.asset_info || ''
+          r.asset_info || '',
+          r.situacao_atual || '',
+          r.plaqueta_qr_code || ''
         ])
       );
 
@@ -1352,14 +1380,16 @@
       
       // Auto-dimensionar colunas
       ws['!cols'] = [
-        { wch: 5 },
-        { wch: 20 },
-        { wch: 15 },
-        { wch: 30 },
-        { wch: 15 },
-        { wch: 35 },
-        { wch: 10 },
-        { wch: 40 }
+        { wch: 5 },   // ID
+        { wch: 20 },  // Data/Hora
+        { wch: 15 },  // Número OCR
+        { wch: 30 },  // QR Code Completo
+        { wch: 15 },  // QR Números
+        { wch: 35 },  // Comparação
+        { wch: 10 },  // Status
+        { wch: 40 },  // Info do Ativo
+        { wch: 18 },  // SITUAÇÃO ATUAL
+        { wch: 18 }   // PLAQUETA QR-CODE
       ];
 
       const sheetName = document.getElementById('sheetName').value || 'verificacao_patrimonio';
