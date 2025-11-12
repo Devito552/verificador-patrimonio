@@ -426,11 +426,11 @@
     <div class="alert">
       <strong>💡 Como usar:</strong><br>
       1️⃣ Clique em "Iniciar Câmera"<br>
-      2️⃣ Aponte PRIMEIRO para o <strong>QR code</strong> (quadrado pequeno à esquerda)<br>
-      3️⃣ Aguarde o BIPE - QR detectado automaticamente!<br>
-      4️⃣ O app fará OCR automático do <strong>número impresso</strong> (1226375)<br>
-      5️⃣ Sistema compara QR vs número impresso<br>
-      6️⃣ Se não detectar QR, clique "Escanear Agora" e aponte pro número<br>
+      2️⃣ Aponte para a <strong>ETIQUETA COMPLETA</strong> (QR + número lado a lado)<br>
+      3️⃣ Clique no botão verde <strong>"🚀 Escanear QR + Número Juntos"</strong><br>
+      4️⃣ Aguarde processamento (QR + OCR automáticos)<br>
+      5️⃣ Sistema compara e mostra se está OK ou Erro<br>
+      6️⃣ Repita para próxima etiqueta<br>
       7️⃣ Exporte tudo para Excel quando terminar
     </div>
 
@@ -809,27 +809,29 @@
           await html5QrScanner.start(
             currentCameraId,
             {
-              fps: 20, // FPS balanceado
+              fps: 20,
               qrbox: function(viewfinderWidth, viewfinderHeight) {
-                // Área BEM GRANDE de detecção - 90% da tela
+                // Área grande mas com mínimo de 100px
                 const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                const qrboxSize = Math.floor(minEdge * 0.9);
+                const qrboxSize = Math.max(100, Math.floor(minEdge * 0.8));
                 return { width: qrboxSize, height: qrboxSize };
               },
               aspectRatio: 1.0,
               videoConstraints: {
-                facingMode: "environment",
-                focusMode: "continuous",
-                advanced: [{ zoom: 1.0 }]
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1920, min: 1280 },
+                height: { ideal: 1080, min: 720 },
+                focusMode: { ideal: "continuous" },
+                advanced: [
+                  { focusMode: "continuous" },
+                  { focusDistance: { ideal: 0.3 } }
+                ]
               },
-              // Detectar todos os tipos de código
-              formatsToSupport: [0, 1, 2, 3, 4, 5], // QR, Code128, Code39, EAN, etc
+              formatsToSupport: [0, 1, 2, 3, 4, 5],
               experimentalFeatures: {
                 useBarCodeDetectorIfSupported: true
               },
-              // Melhorar detecção
-              disableFlip: false,
-              verbose: true
+              disableFlip: false
             },
             qrSuccessCallback,
             qrErrorCallback
@@ -967,7 +969,7 @@
       
       scanBothBtn.disabled = true;
       scanOnceBtn.disabled = true;
-      scanBothBtn.textContent = '⏳ Processando...';
+      scanBothBtn.textContent = '⏳ Capturando imagem...';
       
       try {
         const container = document.getElementById('reader');
@@ -978,25 +980,62 @@
           return;
         }
 
-        // Capturar imagem completa
+        // Capturar imagem completa em alta resolução
         const canvas = document.getElementById('videoCanvas');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        const dataUrl = canvas.toDataURL('image/png');
+        console.log('📐 Imagem capturada:', canvas.width, 'x', canvas.height);
         
-        // Tentar detectar QR na imagem completa
+        // Tentar detectar QR na imagem completa com múltiplas tentativas
         let qrRaw = null;
+        scanBothBtn.textContent = '⏳ Procurando QR code...';
+        
+        // Tentativa 1: Imagem completa
         try {
+          const dataUrl = canvas.toDataURL('image/png');
           qrRaw = await Html5Qrcode.scanFile(dataUrl, true);
-          console.log('✅ QR detectado na imagem:', qrRaw);
+          console.log('✅ QR detectado (tentativa 1):', qrRaw);
         } catch (e) {
-          console.log('⚠️ QR não encontrado, continuando com OCR...');
+          console.log('❌ Tentativa 1 falhou');
+          
+          // Tentativa 2: Lado esquerdo da imagem (onde geralmente está o QR)
+          try {
+            const leftCanvas = document.createElement('canvas');
+            const leftWidth = Math.floor(canvas.width * 0.6);
+            leftCanvas.width = leftWidth;
+            leftCanvas.height = canvas.height;
+            const leftCtx = leftCanvas.getContext('2d');
+            leftCtx.drawImage(canvas, 0, 0, leftWidth, canvas.height, 0, 0, leftWidth, canvas.height);
+            
+            const leftDataUrl = leftCanvas.toDataURL('image/png');
+            qrRaw = await Html5Qrcode.scanFile(leftDataUrl, true);
+            console.log('✅ QR detectado no lado esquerdo (tentativa 2):', qrRaw);
+          } catch (e2) {
+            console.log('❌ Tentativa 2 falhou');
+            
+            // Tentativa 3: Aumentar contraste
+            try {
+              const contrastCanvas = document.createElement('canvas');
+              contrastCanvas.width = canvas.width;
+              contrastCanvas.height = canvas.height;
+              const contrastCtx = contrastCanvas.getContext('2d');
+              contrastCtx.filter = 'contrast(2) brightness(1.2)';
+              contrastCtx.drawImage(canvas, 0, 0);
+              
+              const contrastDataUrl = contrastCanvas.toDataURL('image/png');
+              qrRaw = await Html5Qrcode.scanFile(contrastDataUrl, true);
+              console.log('✅ QR detectado com contraste (tentativa 3):', qrRaw);
+            } catch (e3) {
+              console.log('⚠️ QR não encontrado após 3 tentativas, continuando com OCR...');
+            }
+          }
         }
         
         // Fazer OCR na imagem completa
+        scanBothBtn.textContent = '⏳ OCR 0%...';
         const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
         const { data: { text } } = await Tesseract.recognize(blob, 'por', {
           logger: m => {
@@ -1009,8 +1048,9 @@
         const ocrText = text.trim();
         const ocrDigits = onlyDigits(ocrText);
         
-        console.log('📝 OCR extraído:', ocrText);
-        console.log('🔢 Dígitos OCR:', ocrDigits);
+        console.log('📝 OCR completo:', ocrText);
+        console.log('🔢 Dígitos extraídos:', ocrDigits);
+        console.log('🔖 QR final:', qrRaw || 'NÃO DETECTADO');
 
         await handlePairing(ocrDigits || ocrText, qrRaw);
         
